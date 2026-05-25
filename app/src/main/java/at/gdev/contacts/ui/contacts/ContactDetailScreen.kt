@@ -300,11 +300,6 @@ private fun ContactDetailContent(
 
 @Composable
 private fun Header(contact: Contact) {
-    val titledName = buildString {
-        contact.titleBefore?.takeIf { it.isNotBlank() }?.let { append(it).append(' ') }
-        append(contact.displayName.ifBlank { "—" })
-        contact.titleAfter?.takeIf { it.isNotBlank() }?.let { append(", ").append(it) }
-    }
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         ContactAvatar(
             imageUrl = contact.imageUrl,
@@ -314,7 +309,11 @@ private fun Header(contact: Contact) {
         )
     }
     Spacer(Modifier.height(12.dp))
-    Text(titledName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+    Text(
+        contact.displayName.ifBlank { "—" },
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.SemiBold,
+    )
     if (!contact.active) {
         Spacer(Modifier.height(6.dp))
         AssistChip(onClick = {}, enabled = false, label = { Text("Inactive") })
