@@ -1,5 +1,7 @@
 package at.gdev.contacts.ui.contacts
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,15 +12,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -27,23 +30,25 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import at.gdev.contacts.domain.model.ContactSort
 import at.gdev.contacts.domain.model.ContactSummary
 import at.gdev.contacts.ui.common.ContactAvatar
 import at.gdev.contacts.ui.common.initialsOf
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ContactsListScreen(
     onContactClick: (String) -> Unit,
@@ -58,6 +63,7 @@ fun ContactsListScreen(
             CenterAlignedTopAppBar(
                 title = { Text("Contacts") },
                 actions = {
+                    SortMenu(current = state.sort, onSelect = viewModel::setSort)
                     IconButton(onClick = onOpenCalendar) {
                         Icon(Icons.Filled.CalendarMonth, contentDescription = "Upcoming")
                     }
@@ -85,12 +91,12 @@ fun ContactsListScreen(
             }
 
             when {
-                state.error != null && state.contacts.isEmpty() -> ErrorState(
+                state.error != null && state.totalCount == 0 -> ErrorState(
                     message = state.error!!,
                     onRetry = viewModel::retry,
                 )
 
-                state.contacts.isEmpty() && !state.loading -> Box(
+                state.totalCount == 0 && !state.loading -> Box(
                     Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -101,13 +107,59 @@ fun ContactsListScreen(
                 }
 
                 else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(state.contacts, key = { it.id }) { contact ->
-                        ContactRow(contact = contact, onClick = { onContactClick(contact.id) })
-                        HorizontalDivider()
+                    state.sections.forEach { section ->
+                        stickyHeader(key = "h-${section.letter}") {
+                            SectionHeader(letter = section.letter)
+                        }
+                        items(section.contacts, key = { it.id }) { contact ->
+                            ContactRow(contact = contact, onClick = { onContactClick(contact.id) })
+                            HorizontalDivider()
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SortMenu(current: ContactSort, onSelect: (ContactSort) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    IconButton(onClick = { expanded = true }) {
+        Icon(Icons.Filled.SortByAlpha, contentDescription = "Sort")
+    }
+    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenuItem(
+            text = { Text(if (current == ContactSort.FirstName) "First name ✓" else "First name") },
+            onClick = {
+                expanded = false
+                onSelect(ContactSort.FirstName)
+            },
+        )
+        DropdownMenuItem(
+            text = { Text(if (current == ContactSort.LastName) "Last name ✓" else "Last name") },
+            onClick = {
+                expanded = false
+                onSelect(ContactSort.LastName)
+            },
+        )
+    }
+}
+
+@Composable
+private fun SectionHeader(letter: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+    ) {
+        Text(
+            letter,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 
@@ -149,4 +201,3 @@ private fun ContactRow(contact: ContactSummary, onClick: () -> Unit) {
         }
     }
 }
-
