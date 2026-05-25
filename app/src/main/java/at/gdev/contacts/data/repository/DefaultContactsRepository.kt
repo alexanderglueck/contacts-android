@@ -27,6 +27,7 @@ import at.gdev.contacts.data.network.dto.ContactNumberRequest
 import at.gdev.contacts.data.network.dto.ContactSummaryDto
 import at.gdev.contacts.data.network.dto.ContactSummaryNumberDto
 import at.gdev.contacts.data.network.dto.ContactUpdateRequest
+import at.gdev.contacts.data.network.dto.ContactsStoreRequest
 import at.gdev.contacts.data.network.dto.ContactUrlDto
 import at.gdev.contacts.data.network.dto.ContactUrlRequest
 import at.gdev.contacts.data.network.dto.NamedRefDto
@@ -68,15 +69,29 @@ class DefaultContactsRepository @Inject constructor(
 
     private val cache = MutableStateFlow<List<ContactSummary>>(emptyList())
 
+    /**
+     * Remembered so post-mutation refreshes (create/update/delete) preserve any
+     * active search filter the list screen is showing.
+     */
+    private var lastQuery: String? = null
+
     override val summaries: Flow<List<ContactSummary>> = cache.asStateFlow()
 
     override suspend fun refresh(query: String?): Result<Unit> = runCatching {
         val all = fetchAllPages(query)
         cache.value = all.map { it.toDomain() }
+        lastQuery = query?.takeIf { it.isNotBlank() }
     }.fold(
         onSuccess = { Result.success(Unit) },
         onFailure = { Result.failure(it.toDomainError(json)) },
     )
+
+    private suspend fun refreshCacheSilently() {
+        runCatching {
+            val items = fetchAllPages(lastQuery)
+            cache.value = items.map { it.toDomain() }
+        }
+    }
 
     private suspend fun fetchAllPages(query: String?): List<ContactSummaryDto> {
         val q = query?.takeIf { it.isNotBlank() }
@@ -172,11 +187,27 @@ class DefaultContactsRepository @Inject constructor(
 
     // ----- Contact base mutations -----
 
-    override suspend fun updateContact(id: String, patch: ContactPatch): Result<Unit> = mutate {
-        api.update(id, patch.toRequest())
+    override suspend fun createContact(patch: ContactPatch): Result<String> = runCatching {
+        api.create(patch.toStoreRequest()).data.ulid
+    }.fold(
+        onSuccess = { ulid ->
+            refreshCacheSilently()
+            Result.success(ulid)
+        },
+        onFailure = { Result.failure(it.toDomainError(json)) },
+    )
+
+    override suspend fun updateContact(id: String, patch: ContactPatch): Result<Unit> {
+        val result = mutate { api.update(id, patch.toRequest()) }
+        if (result.isSuccess) refreshCacheSilently()
+        return result
     }
 
-    override suspend fun deleteContact(id: String): Result<Unit> = mutate { ack(api.delete(id)) }
+    override suspend fun deleteContact(id: String): Result<Unit> {
+        val result = mutate { ack(api.delete(id)) }
+        if (result.isSuccess) refreshCacheSilently()
+        return result
+    }
 
     // ----- Numbers -----
 
@@ -370,6 +401,30 @@ class DefaultContactsRepository @Inject constructor(
     }
 
     private fun LocalDate.formatIso(): String = format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+    private fun ContactPatch.toStoreRequest(): ContactsStoreRequest = ContactsStoreRequest(
+        salutation = salutation.orEmpty(),
+        firstname = firstName.orEmpty(),
+        lastname = lastName.orEmpty(),
+        title = titleBefore,
+        titleAfter = titleAfter,
+        nickname = nickname,
+        genderId = genderId,
+        company = company,
+        vatin = vatin,
+        department = department,
+        job = job,
+        customId = customId,
+        iban = iban,
+        dateOfBirth = dateOfBirth?.formatIso(),
+        diedAt = diedAt?.formatIso(),
+        diedFrom = diedFrom,
+        nationalityId = nationalityId,
+        firstMet = firstMet,
+        note = note,
+        active = active,
+        contactGroups = contactGroupIds,
+    )
 
     private fun ContactPatch.toRequest(): ContactUpdateRequest = ContactUpdateRequest(
         salutation = salutation,

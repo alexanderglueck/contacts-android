@@ -58,6 +58,35 @@ data class ContactGiftIdeaRequest(
     @SerialName("due_at") val dueAt: String? = null,
 )
 
+/**
+ * Server requires `salutation`, `firstname`, `lastname` on create; everything else
+ * is optional. `explicitNulls = false` keeps unset fields out of the payload.
+ */
+@Serializable
+data class ContactsStoreRequest(
+    val salutation: String,
+    val firstname: String,
+    val lastname: String,
+    val title: String? = null,
+    @SerialName("title_after") val titleAfter: String? = null,
+    val nickname: String? = null,
+    @SerialName("gender_id") val genderId: Int? = null,
+    val company: String? = null,
+    val vatin: String? = null,
+    val department: String? = null,
+    val job: String? = null,
+    @SerialName("custom_id") val customId: String? = null,
+    val iban: String? = null,
+    @SerialName("date_of_birth") val dateOfBirth: String? = null,
+    @SerialName("died_at") val diedAt: String? = null,
+    @SerialName("died_from") val diedFrom: String? = null,
+    @SerialName("nationality_id") val nationalityId: Int? = null,
+    @SerialName("first_met") val firstMet: String? = null,
+    val note: String? = null,
+    val active: Boolean? = null,
+    @SerialName("contact_groups") val contactGroups: List<Int>? = null,
+)
+
 /** Server treats all fields as optional for partial update; `explicitNulls = false` keeps payloads tight. */
 @Serializable
 data class ContactUpdateRequest(

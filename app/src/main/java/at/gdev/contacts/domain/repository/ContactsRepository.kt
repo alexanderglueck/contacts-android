@@ -16,6 +16,7 @@ interface ContactsRepository {
     suspend fun syncAll(): Result<Int>
 
     // Contact base mutations
+    suspend fun createContact(patch: ContactPatch): Result<String>
     suspend fun updateContact(id: String, patch: ContactPatch): Result<Unit>
     suspend fun deleteContact(id: String): Result<Unit>
 

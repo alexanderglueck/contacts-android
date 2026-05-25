@@ -8,6 +8,7 @@ import at.gdev.contacts.data.network.dto.ContactCommentUpdateRequest
 import at.gdev.contacts.data.network.dto.ContactCommentsResponse
 import at.gdev.contacts.data.network.dto.ContactDateRequest
 import at.gdev.contacts.data.network.dto.ContactDetailResponse
+import at.gdev.contacts.data.network.dto.ContactsStoreRequest
 import at.gdev.contacts.data.network.dto.ContactEmailRequest
 import at.gdev.contacts.data.network.dto.ContactGiftIdeaRequest
 import at.gdev.contacts.data.network.dto.ContactNoteRequest
@@ -32,6 +33,9 @@ interface ContactsApi {
         @Query("page") page: Int? = null,
         @Query("per_page") perPage: Int? = null,
     ): ContactsListResponse
+
+    @POST("contacts")
+    suspend fun create(@Body body: ContactsStoreRequest): ContactDetailResponse
 
     @GET("contacts/{contact}")
     suspend fun show(@Path("contact") ulid: String): ContactDetailResponse

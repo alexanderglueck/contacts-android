@@ -20,9 +20,10 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 data class EditContactUiState(
+    val isNew: Boolean = false,
     val loading: Boolean = true,
     val submitting: Boolean = false,
-    val saved: Boolean = false,
+    val savedContactId: String? = null,
     val error: String? = null,
     val fieldErrors: Map<String, String> = emptyMap(),
 
@@ -66,9 +67,9 @@ class EditContactViewModel @Inject constructor(
     private val referenceRepository: ReferenceRepository,
 ) : ViewModel() {
 
-    private val contactId: String = checkNotNull(savedStateHandle[Routes.ARG_CONTACT_ID])
+    private val contactId: String? = savedStateHandle[Routes.ARG_CONTACT_ID]
 
-    private val _state = MutableStateFlow(EditContactUiState())
+    private val _state = MutableStateFlow(EditContactUiState(isNew = contactId == null))
     val state: StateFlow<EditContactUiState> = _state.asStateFlow()
 
     init {
@@ -77,17 +78,18 @@ class EditContactViewModel @Inject constructor(
 
     private fun load() {
         viewModelScope.launch {
-            val contact = contactsRepository.getContact(contactId)
+            val contact = contactId?.let { contactsRepository.getContact(it) }
             val genders = runCatching { referenceRepository.genders() }.getOrDefault(emptyList())
             val countries = runCatching { referenceRepository.countries() }.getOrDefault(emptyList())
             val groups = runCatching { referenceRepository.contactGroups() }.getOrDefault(emptyList())
             _state.update {
-                it.copy(
+                val base = it.copy(
                     loading = false,
                     genders = genders,
                     nationalities = countries,
                     contactGroups = groups,
-                ).populateFrom(contact)
+                )
+                if (contactId == null) base else base.populateFrom(contact)
             }
         }
     }
@@ -176,17 +178,23 @@ class EditContactViewModel @Inject constructor(
                 active = s.active,
                 contactGroupIds = s.selectedGroupIds.toList(),
             )
-            val result = contactsRepository.updateContact(contactId, patch)
+            val id = contactId
+            val result: Result<String> = if (id == null) {
+                contactsRepository.createContact(patch)
+            } else {
+                contactsRepository.updateContact(id, patch).map { id }
+            }
             _state.update { current ->
                 result.fold(
-                    onSuccess = { current.copy(submitting = false, saved = true) },
+                    onSuccess = { newId -> current.copy(submitting = false, savedContactId = newId) },
                     onFailure = { err ->
                         val fieldErrors = (err as? ValidationException)?.errors
                             ?.mapValues { it.value.joinToString(" ") }
                             ?: emptyMap()
+                        val fallback = if (id == null) "Failed to create contact" else "Failed to update contact"
                         current.copy(
                             submitting = false,
-                            error = err.message ?: "Failed to update contact",
+                            error = err.message ?: fallback,
                             fieldErrors = fieldErrors,
                         )
                     },

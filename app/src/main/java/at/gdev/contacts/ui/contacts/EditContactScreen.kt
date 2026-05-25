@@ -46,19 +46,19 @@ import at.gdev.contacts.ui.contacts.edit.NamedRefDropdown
 @Composable
 fun EditContactScreen(
     onBack: () -> Unit,
-    onSaved: () -> Unit,
+    onSaved: (contactId: String) -> Unit,
     viewModel: EditContactViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
 
-    LaunchedEffect(state.saved) {
-        if (state.saved) onSaved()
+    LaunchedEffect(state.savedContactId) {
+        state.savedContactId?.let(onSaved)
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit contact") },
+                title = { Text(if (state.isNew) "New contact" else "Edit contact") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

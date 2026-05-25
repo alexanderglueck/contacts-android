@@ -4,6 +4,7 @@ object Routes {
     const val LOGIN = "login"
     const val REGISTER = "register"
     const val CONTACTS_LIST = "contacts"
+    const val CONTACT_NEW = "contacts/new"
     const val CONTACT_DETAIL = "contacts/{contactId}"
     const val CONTACT_EDIT = "contacts/{contactId}/edit"
     const val SETTINGS = "settings"

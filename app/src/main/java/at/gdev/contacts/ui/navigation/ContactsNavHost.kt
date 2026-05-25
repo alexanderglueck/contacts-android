@@ -72,6 +72,7 @@ fun ContactsNavHost(
                 onContactClick = { contactId ->
                     navController.navigate(Routes.contactDetail(contactId))
                 },
+                onAddContact = { navController.navigate(Routes.CONTACT_NEW) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenCalendar = { navController.navigate(Routes.CALENDAR) },
             )
@@ -89,6 +90,16 @@ fun ContactsNavHost(
             ContactDetailScreen(
                 onBack = { navController.popBackStack() },
                 onEditBase = { id -> navController.navigate(Routes.contactEdit(id)) },
+            )
+        }
+        composable(Routes.CONTACT_NEW) {
+            EditContactScreen(
+                onBack = { navController.popBackStack() },
+                onSaved = { newId ->
+                    navController.navigate(Routes.contactDetail(newId)) {
+                        popUpTo(Routes.CONTACTS_LIST)
+                    }
+                },
             )
         }
         composable(
