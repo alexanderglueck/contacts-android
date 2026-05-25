@@ -7,11 +7,15 @@ data class ContactSummary(
     val firstName: String,
     val lastName: String,
     val fullName: String,
+    val titleBefore: String? = null,
+    val titleAfter: String? = null,
+    val nickname: String? = null,
+    val salutation: String? = null,
     val company: String? = null,
     val imageUrl: String? = null,
 ) {
     val displayName: String
-        get() = fullName.ifBlank { listOf(firstName, lastName).filter { it.isNotBlank() }.joinToString(" ") }
+        get() = composeDisplayName(titleBefore, firstName, lastName, titleAfter, nickname, fallback = fullName)
 }
 
 data class Contact(
@@ -53,7 +57,7 @@ data class Contact(
     val giftIdeas: List<ContactGiftIdea> = emptyList(),
 ) {
     val displayName: String
-        get() = fullName.ifBlank { listOf(firstName, lastName).filter { it.isNotBlank() }.joinToString(" ") }
+        get() = composeDisplayName(titleBefore, firstName, lastName, titleAfter, nickname, fallback = fullName)
 }
 
 data class NamedRef(val id: Int, val name: String)

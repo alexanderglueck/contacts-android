@@ -46,6 +46,7 @@ import at.gdev.contacts.domain.model.ContactPatch
 import at.gdev.contacts.domain.model.ContactSummary
 import at.gdev.contacts.domain.model.ContactUrl
 import at.gdev.contacts.domain.model.NamedRef
+import at.gdev.contacts.domain.model.composeDisplayName
 import at.gdev.contacts.domain.repository.ContactsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -78,9 +79,13 @@ class DefaultContactsRepository @Inject constructor(
     override val summaries: Flow<List<ContactSummary>> = cache.asStateFlow()
 
     override suspend fun refresh(query: String?): Result<Unit> = runCatching {
-        val all = fetchAllPages(query)
+        val q = query?.takeIf { it.isNotBlank() }
+        val all = fetchAllPages(q)
         cache.value = all.map { it.toDomain() }
-        lastQuery = query?.takeIf { it.isNotBlank() }
+        lastQuery = q
+        // Only an unfiltered refresh is safe to treat as authoritative for Room —
+        // a query-filtered result can't be used to prune contacts that don't match.
+        if (q == null) persistSummariesToRoom(all)
     }.fold(
         onSuccess = { Result.success(Unit) },
         onFailure = { Result.failure(it.toDomainError(json)) },
@@ -91,6 +96,16 @@ class DefaultContactsRepository @Inject constructor(
             val items = fetchAllPages(lastQuery)
             cache.value = items.map { it.toDomain() }
         }
+    }
+
+    private suspend fun persistSummariesToRoom(summaries: List<ContactSummaryDto>) {
+        val now = System.currentTimeMillis()
+        summaries.forEach { summary ->
+            val contact = summary.toContactEntity(now)
+            val numbers = summary.numbers.map { it.toNumberEntity(summary.ulid) }
+            dao.replaceContactWithNumbers(contact, numbers)
+        }
+        dao.pruneContactsNotIn(summaries.map { it.ulid })
     }
 
     private suspend fun fetchAllPages(query: String?): List<ContactSummaryDto> {
@@ -171,13 +186,7 @@ class DefaultContactsRepository @Inject constructor(
     override suspend fun syncAll(): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
             val summaries = fetchAllPages(query = null)
-            val now = System.currentTimeMillis()
-            summaries.forEach { summary ->
-                val contact = summary.toContactEntity(now)
-                val numbers = summary.numbers.map { it.toNumberEntity(summary.ulid) }
-                dao.replaceContactWithNumbers(contact, numbers)
-            }
-            dao.pruneContactsNotIn(summaries.map { it.ulid })
+            persistSummariesToRoom(summaries)
             dao.contactCount()
         }.fold(
             onSuccess = { Result.success(it) },
@@ -457,13 +466,17 @@ class DefaultContactsRepository @Inject constructor(
         firstName = firstname,
         lastName = lastname,
         fullName = fullname,
+        titleBefore = title,
+        titleAfter = titleAfter,
+        nickname = nickname,
+        salutation = salutation,
         company = company,
         imageUrl = ApiConfig.normalizeImageUrl(imageUrl),
     )
 
     private fun ContactDetailDto.toContactEntity(now: Long): ContactEntity = ContactEntity(
         ulid = ulid,
-        fullName = fullname,
+        fullName = composeDisplayName(title, firstname, lastname, titleAfter, nickname, fallback = fullname),
         firstName = firstname,
         lastName = lastname,
         company = company,
@@ -473,7 +486,7 @@ class DefaultContactsRepository @Inject constructor(
 
     private fun ContactSummaryDto.toContactEntity(now: Long): ContactEntity = ContactEntity(
         ulid = ulid,
-        fullName = fullname,
+        fullName = composeDisplayName(title, firstname, lastname, titleAfter, nickname, fallback = fullname),
         firstName = firstname,
         lastName = lastname,
         company = company,

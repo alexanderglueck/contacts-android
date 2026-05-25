@@ -29,6 +29,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -116,14 +117,20 @@ fun ContactsListScreen(
                     )
                 }
 
-                else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    state.sections.forEach { section ->
-                        stickyHeader(key = "h-${section.letter}") {
-                            SectionHeader(letter = section.letter)
-                        }
-                        items(section.contacts, key = { it.id }) { contact ->
-                            ContactRow(contact = contact, onClick = { onContactClick(contact.id) })
-                            HorizontalDivider()
+                else -> PullToRefreshBox(
+                    isRefreshing = state.refreshing,
+                    onRefresh = viewModel::pullToRefresh,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        state.sections.forEach { section ->
+                            stickyHeader(key = "h-${section.letter}") {
+                                SectionHeader(letter = section.letter)
+                            }
+                            items(section.contacts, key = { it.id }) { contact ->
+                                ContactRow(contact = contact, onClick = { onContactClick(contact.id) })
+                                HorizontalDivider()
+                            }
                         }
                     }
                 }

@@ -34,6 +34,7 @@ data class ContactsListUiState(
     val sections: List<ContactSection> = emptyList(),
     val totalCount: Int = 0,
     val loading: Boolean = false,
+    val refreshing: Boolean = false,
     val error: String? = null,
 )
 
@@ -46,15 +47,15 @@ class ContactsListViewModel @Inject constructor(
 
     private val query = MutableStateFlow("")
     private val loading = MutableStateFlow(false)
+    private val refreshing = MutableStateFlow(false)
     private val error = MutableStateFlow<String?>(null)
 
     val state: StateFlow<ContactsListUiState> = combine(
-        repository.summaries,
-        query,
-        preferences.sort,
+        combine(repository.summaries, query, preferences.sort) { contacts, q, sort -> Triple(contacts, q, sort) },
         loading,
+        refreshing,
         error,
-    ) { contacts, q, sort, isLoading, err ->
+    ) { (contacts, q, sort), isLoading, isRefreshing, err ->
         val sections = groupAndSort(contacts, sort)
         ContactsListUiState(
             query = q,
@@ -62,6 +63,7 @@ class ContactsListViewModel @Inject constructor(
             sections = sections,
             totalCount = contacts.size,
             loading = isLoading,
+            refreshing = isRefreshing,
             error = err,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ContactsListUiState())
@@ -84,6 +86,17 @@ class ContactsListViewModel @Inject constructor(
     }
 
     fun retry() = refresh(query.value)
+
+    fun pullToRefresh() {
+        if (refreshing.value) return
+        viewModelScope.launch {
+            refreshing.value = true
+            error.value = null
+            val result = repository.refresh(query.value)
+            refreshing.value = false
+            result.onFailure { error.value = it.message ?: "Failed to refresh contacts" }
+        }
+    }
 
     private fun refresh(q: String) {
         viewModelScope.launch {
