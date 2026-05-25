@@ -2,6 +2,7 @@
 
 package at.gdev.contacts.ui.contacts
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import at.gdev.contacts.ui.common.PhotoSource
@@ -261,31 +263,45 @@ private fun ImageViewerDialog(
         )
     }
 
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    BackHandler(onBack = onDismiss)
+    androidx.compose.material3.Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.surface,
     ) {
-        androidx.compose.material3.Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.surface,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close")
                     }
+                    if (!contact.imageUrl.isNullOrBlank()) {
+                        IconButton(
+                            onClick = { confirmRemove = true },
+                            enabled = !submitting,
+                        ) {
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = "Remove photo",
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
                 }
 
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
                     if (contact.imageUrl.isNullOrBlank()) {
                         ContactAvatar(
                             imageUrl = null,
@@ -297,7 +313,8 @@ private fun ImageViewerDialog(
                         AsyncImage(
                             model = contact.imageUrl,
                             contentDescription = null,
-                            modifier = Modifier.fillMaxWidth(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize(),
                         )
                     }
                 }
@@ -327,32 +344,9 @@ private fun ImageViewerDialog(
                         enabled = !submitting,
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("Choose from gallery") }
-                    if (!contact.imageUrl.isNullOrBlank()) {
-                        androidx.compose.material3.OutlinedButton(
-                            onClick = { confirmRemove = true },
-                            enabled = !submitting,
-                            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error,
-                            ),
-                            border = androidx.compose.foundation.BorderStroke(
-                                width = 1.dp,
-                                color = MaterialTheme.colorScheme.error,
-                            ),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Icon(
-                                androidx.compose.material.icons.Icons.Filled.Delete,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Spacer(Modifier.size(8.dp))
-                            Text("Remove photo")
-                        }
-                    }
                 }
             }
         }
-    }
 
     if (confirmRemove) {
         androidx.compose.material3.AlertDialog(
