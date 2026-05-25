@@ -308,17 +308,13 @@ private fun Header(contact: Contact) {
             textStyle = MaterialTheme.typography.headlineMedium,
         )
     }
-    Spacer(Modifier.height(12.dp))
-    Text(
-        contact.displayName.ifBlank { "—" },
-        style = MaterialTheme.typography.headlineSmall,
-        fontWeight = FontWeight.SemiBold,
-    )
     if (!contact.active) {
-        Spacer(Modifier.height(6.dp))
-        AssistChip(onClick = {}, enabled = false, label = { Text("Inactive") })
+        Spacer(Modifier.height(12.dp))
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            AssistChip(onClick = {}, enabled = false, label = { Text("Inactive") })
+        }
     }
-    Spacer(Modifier.height(4.dp))
+    Spacer(Modifier.height(8.dp))
     contact.nickname?.takeIf { it.isNotBlank() }?.let { LabeledLine("Nickname", it) }
     contact.salutation?.takeIf { it.isNotBlank() }?.let { LabeledLine("Salutation", it) }
     contact.company?.takeIf { it.isNotBlank() }?.let { LabeledLine("Company", it) }
