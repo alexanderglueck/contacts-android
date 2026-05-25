@@ -2,6 +2,10 @@
 
 package at.gdev.contacts.ui.contacts
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,22 +30,36 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import at.gdev.contacts.ui.common.ContactAvatar
+import at.gdev.contacts.ui.common.PhotoSource
+import at.gdev.contacts.ui.common.captureUri
+import at.gdev.contacts.ui.common.initialsOf
+import at.gdev.contacts.ui.common.newCaptureFile
 import at.gdev.contacts.ui.contacts.edit.DateField
 import at.gdev.contacts.ui.contacts.edit.NamedRefDropdown
+import coil.compose.AsyncImage
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,9 +69,45 @@ fun EditContactScreen(
     viewModel: EditContactViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
 
     LaunchedEffect(state.savedContactId) {
         state.savedContactId?.let(onSaved)
+    }
+
+    val pickFromGallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            val resolver = context.contentResolver
+            val bytes = runCatching { resolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+            val mime = resolver.getType(uri) ?: "image/jpeg"
+            if (bytes != null) viewModel.selectImage(bytes, mime)
+        }
+    }
+    var pendingFile by remember { mutableStateOf<File?>(null) }
+    var lastSource by remember { mutableStateOf<PhotoSource?>(null) }
+    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val file = pendingFile
+        if (ok && file != null && file.length() > 0) {
+            val bytes = runCatching { file.readBytes() }.getOrNull()
+            file.delete()
+            pendingFile = null
+            if (bytes != null) viewModel.selectImage(bytes, "image/jpeg")
+        } else {
+            file?.delete()
+            pendingFile = null
+        }
+    }
+    val launchGallery = {
+        lastSource = PhotoSource.Gallery
+        pickFromGallery.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        )
+    }
+    val launchCamera = {
+        lastSource = PhotoSource.Camera
+        val file = newCaptureFile(context)
+        pendingFile = file
+        takePicture.launch(captureUri(context, file))
     }
 
     Scaffold(
@@ -82,6 +137,20 @@ fun EditContactScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (state.isNew) {
+                AvatarPicker(
+                    pendingBytes = state.pendingImageBytes,
+                    initials = initialsOf(state.firstName, state.lastName),
+                    onTakePhoto = { launchCamera() },
+                    onPickGallery = { launchGallery() },
+                    onClear = viewModel::clearPendingImage,
+                )
+                state.imageError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                SectionDivider()
+            }
+
             SectionHeader("Name")
             FieldRow {
                 OutlinedTextField(
@@ -285,6 +354,71 @@ fun EditContactScreen(
                     Text("Save")
                 }
             }
+        }
+    }
+
+    state.oversizeImage?.let { oversize ->
+        AlertDialog(
+            onDismissRequest = viewModel::cancelOversize,
+            title = { Text("Image too large") },
+            text = {
+                Text(
+                    "This image is ${"%.1f".format(oversize.sizeMb)} MB; the server limit is 8 MB. " +
+                        "Downsize it now, or pick another?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::downsizeAndSelect) { Text("Downsize") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.cancelOversize()
+                    when (lastSource) {
+                        PhotoSource.Camera -> launchCamera()
+                        PhotoSource.Gallery -> launchGallery()
+                        null -> launchGallery()
+                    }
+                }) { Text("Choose another") }
+            },
+        )
+    }
+}
+
+
+@Composable
+private fun AvatarPicker(
+    pendingBytes: ByteArray?,
+    initials: String,
+    onTakePhoto: () -> Unit,
+    onPickGallery: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (pendingBytes != null) {
+            AsyncImage(
+                model = pendingBytes,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape),
+            )
+        } else {
+            ContactAvatar(imageUrl = null, initials = initials, size = 96.dp)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(onClick = onTakePhoto, modifier = Modifier.weight(1f)) { Text("Take photo") }
+            OutlinedButton(onClick = onPickGallery, modifier = Modifier.weight(1f)) { Text("Gallery") }
+        }
+        if (pendingBytes != null) {
+            TextButton(onClick = onClear) { Text("Remove photo") }
         }
     }
 }

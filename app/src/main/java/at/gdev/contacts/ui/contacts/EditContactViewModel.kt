@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import at.gdev.contacts.data.network.ValidationException
+import at.gdev.contacts.data.util.downsizeJpeg
 import at.gdev.contacts.domain.model.Contact
 import at.gdev.contacts.domain.model.ContactPatch
 import at.gdev.contacts.domain.model.NamedRef
@@ -11,11 +12,13 @@ import at.gdev.contacts.domain.repository.ContactsRepository
 import at.gdev.contacts.domain.repository.ReferenceRepository
 import at.gdev.contacts.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -52,6 +55,11 @@ data class EditContactUiState(
     val diedFrom: String = "",
     val note: String = "",
     val active: Boolean = true,
+
+    val pendingImageBytes: ByteArray? = null,
+    val pendingImageMime: String? = null,
+    val oversizeImage: OversizeImage? = null,
+    val imageError: String? = null,
 ) {
     val canSave: Boolean
         get() = !loading && !submitting &&
@@ -146,6 +154,41 @@ class EditContactViewModel @Inject constructor(
     fun setNote(v: String) = _state.update { it.copy(note = v).clearErrors() }
     fun setActive(v: Boolean) = _state.update { it.copy(active = v).clearErrors() }
 
+    fun selectImage(bytes: ByteArray, mimeType: String) {
+        if (bytes.size > MAX_IMAGE_BYTES) {
+            _state.update { it.copy(oversizeImage = OversizeImage(bytes, mimeType), imageError = null) }
+            return
+        }
+        _state.update {
+            it.copy(
+                pendingImageBytes = bytes,
+                pendingImageMime = mimeType,
+                imageError = null,
+            )
+        }
+    }
+
+    fun cancelOversize() = _state.update { it.copy(oversizeImage = null, imageError = null) }
+
+    fun downsizeAndSelect() {
+        val pending = _state.value.oversizeImage ?: return
+        _state.update { it.copy(oversizeImage = null, imageError = null) }
+        viewModelScope.launch {
+            val downsized = withContext(Dispatchers.Default) { downsizeJpeg(pending.bytes, MAX_IMAGE_BYTES) }
+            if (downsized == null) {
+                _state.update { it.copy(imageError = "Couldn't downsize this image. Pick another.") }
+                return@launch
+            }
+            _state.update {
+                it.copy(pendingImageBytes = downsized, pendingImageMime = "image/jpeg")
+            }
+        }
+    }
+
+    fun clearPendingImage() = _state.update {
+        it.copy(pendingImageBytes = null, pendingImageMime = null, imageError = null)
+    }
+
     private fun EditContactUiState.clearErrors(): EditContactUiState =
         if (error == null && fieldErrors.isEmpty()) this
         else copy(error = null, fieldErrors = emptyMap())
@@ -184,22 +227,37 @@ class EditContactViewModel @Inject constructor(
             } else {
                 contactsRepository.updateContact(id, patch).map { id }
             }
-            _state.update { current ->
-                result.fold(
-                    onSuccess = { newId -> current.copy(submitting = false, savedContactId = newId) },
-                    onFailure = { err ->
-                        val fieldErrors = (err as? ValidationException)?.errors
-                            ?.mapValues { it.value.joinToString(" ") }
-                            ?: emptyMap()
-                        val fallback = if (id == null) "Failed to create contact" else "Failed to update contact"
-                        current.copy(
+            result.fold(
+                onSuccess = { newId ->
+                    val pendingBytes = s.pendingImageBytes
+                    val pendingMime = s.pendingImageMime
+                    if (id == null && pendingBytes != null && pendingMime != null) {
+                        // Best-effort image upload after create. If it fails, the contact still
+                        // exists — surface the error but let the user reach the detail screen,
+                        // where they can retry the upload.
+                        val upload = contactsRepository.uploadContactImage(newId, pendingBytes, pendingMime)
+                        upload.onFailure { err ->
+                            _state.update {
+                                it.copy(imageError = err.message ?: "Contact saved, but image upload failed.")
+                            }
+                        }
+                    }
+                    _state.update { it.copy(submitting = false, savedContactId = newId) }
+                },
+                onFailure = { err ->
+                    val fieldErrors = (err as? ValidationException)?.errors
+                        ?.mapValues { it.value.joinToString(" ") }
+                        ?: emptyMap()
+                    val fallback = if (id == null) "Failed to create contact" else "Failed to update contact"
+                    _state.update {
+                        it.copy(
                             submitting = false,
                             error = err.message ?: fallback,
                             fieldErrors = fieldErrors,
                         )
-                    },
-                )
-            }
+                    }
+                },
+            )
         }
     }
 }

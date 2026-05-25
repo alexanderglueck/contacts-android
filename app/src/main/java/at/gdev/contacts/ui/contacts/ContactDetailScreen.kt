@@ -19,7 +19,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.core.content.FileProvider
+import at.gdev.contacts.ui.common.PhotoSource
+import at.gdev.contacts.ui.common.captureUri
+import at.gdev.contacts.ui.common.newCaptureFile
 import coil.compose.AsyncImage
 import java.io.File
 import androidx.compose.material.icons.Icons
@@ -207,7 +209,6 @@ fun ContactDetailScreen(
     }
 }
 
-private enum class PhotoSource { Camera, Gallery }
 
 @Composable
 private fun ImageViewerDialog(
@@ -224,6 +225,7 @@ private fun ImageViewerDialog(
     val context = LocalContext.current
     var pendingFile by remember { mutableStateOf<File?>(null) }
     var lastSource by remember { mutableStateOf<PhotoSource?>(null) }
+    var confirmRemove by remember { mutableStateOf(false) }
     val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
         val file = pendingFile
         if (ok && file != null && file.length() > 0) {
@@ -327,14 +329,51 @@ private fun ImageViewerDialog(
                     ) { Text("Choose from gallery") }
                     if (!contact.imageUrl.isNullOrBlank()) {
                         androidx.compose.material3.OutlinedButton(
-                            onClick = onRemove,
+                            onClick = { confirmRemove = true },
                             enabled = !submitting,
+                            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error,
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.error,
+                            ),
                             modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Remove photo") }
+                        ) {
+                            Icon(
+                                androidx.compose.material.icons.Icons.Filled.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.size(8.dp))
+                            Text("Remove photo")
+                        }
                     }
                 }
             }
         }
+    }
+
+    if (confirmRemove) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text("Remove photo?") },
+            text = { Text("Replaces the contact's avatar with their initials. The image can't be recovered.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        confirmRemove = false
+                        onRemove()
+                    },
+                    enabled = !submitting,
+                ) { Text("Remove") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmRemove = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 
     if (oversize != null) {
@@ -364,13 +403,6 @@ private fun ImageViewerDialog(
     }
 }
 
-private fun newCaptureFile(context: android.content.Context): File {
-    val dir = File(context.cacheDir, "captures").apply { mkdirs() }
-    return File(dir, "avatar-${System.currentTimeMillis()}.jpg")
-}
-
-private fun captureUri(context: android.content.Context, file: File): android.net.Uri =
-    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 
 @Composable
 private fun ContactDetailContent(
