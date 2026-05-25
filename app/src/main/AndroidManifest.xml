@@ -50,6 +50,18 @@
                 android:value="true" />
         </provider>
 
+        <!-- Grants temporary read access on cache-dir files to apps started via Intent
+             (e.g. the camera app receiving an EXTRA_OUTPUT URI for a profile-photo capture). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Hilt provides the WorkerFactory via Configuration.Provider; disable the
              default startup initializer so it picks ours up on-demand. -->
         <provider

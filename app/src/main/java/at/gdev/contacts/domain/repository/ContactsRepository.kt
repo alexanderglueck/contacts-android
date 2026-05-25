@@ -20,6 +20,10 @@ interface ContactsRepository {
     suspend fun updateContact(id: String, patch: ContactPatch): Result<Unit>
     suspend fun deleteContact(id: String): Result<Unit>
 
+    // Avatar
+    suspend fun uploadContactImage(id: String, bytes: ByteArray, mimeType: String): Result<Unit>
+    suspend fun removeContactImage(id: String): Result<Unit>
+
     // Numbers
     suspend fun addNumber(contactId: String, name: String, number: String): Result<Unit>
     suspend fun updateNumber(contactId: String, numberId: String, name: String, number: String): Result<Unit>

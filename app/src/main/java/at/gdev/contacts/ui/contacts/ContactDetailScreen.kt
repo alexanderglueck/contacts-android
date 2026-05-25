@@ -2,6 +2,9 @@
 
 package at.gdev.contacts.ui.contacts
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,8 +16,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.core.content.FileProvider
+import coil.compose.AsyncImage
+import java.io.File
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -184,7 +191,186 @@ fun ContactDetailScreen(
     }
 
     Sheets(state = state, viewModel = viewModel)
+
+    if (state.imageViewerOpen && state.contact != null) {
+        ImageViewerDialog(
+            contact = state.contact!!,
+            submitting = state.imageSubmitting,
+            error = state.imageError,
+            oversize = state.oversizeImage,
+            onDismiss = viewModel::closeImageViewer,
+            onTakePhoto = viewModel::uploadImage,
+            onRemove = viewModel::removeImage,
+            onDownsize = viewModel::downsizeAndUpload,
+            onCancelOversize = viewModel::cancelOversize,
+        )
+    }
 }
+
+private enum class PhotoSource { Camera, Gallery }
+
+@Composable
+private fun ImageViewerDialog(
+    contact: Contact,
+    submitting: Boolean,
+    error: String?,
+    oversize: OversizeImage?,
+    onDismiss: () -> Unit,
+    onTakePhoto: (ByteArray, String) -> Unit,
+    onRemove: () -> Unit,
+    onDownsize: () -> Unit,
+    onCancelOversize: () -> Unit,
+) {
+    val context = LocalContext.current
+    var pendingFile by remember { mutableStateOf<File?>(null) }
+    var lastSource by remember { mutableStateOf<PhotoSource?>(null) }
+    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val file = pendingFile
+        if (ok && file != null && file.length() > 0) {
+            val bytes = runCatching { file.readBytes() }.getOrNull()
+            file.delete()
+            pendingFile = null
+            if (bytes != null) onTakePhoto(bytes, "image/jpeg")
+        } else {
+            file?.delete()
+            pendingFile = null
+        }
+    }
+    val pickFromGallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            val resolver = context.contentResolver
+            val bytes = runCatching { resolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+            val mime = resolver.getType(uri) ?: "image/jpeg"
+            if (bytes != null) onTakePhoto(bytes, mime)
+        }
+    }
+
+    fun launchCamera() {
+        lastSource = PhotoSource.Camera
+        val file = newCaptureFile(context)
+        pendingFile = file
+        takePicture.launch(captureUri(context, file))
+    }
+
+    fun launchGallery() {
+        lastSource = PhotoSource.Gallery
+        pickFromGallery.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        )
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close")
+                    }
+                }
+
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    if (contact.imageUrl.isNullOrBlank()) {
+                        ContactAvatar(
+                            imageUrl = null,
+                            initials = initialsOf(contact.firstName, contact.lastName, contact.fullName),
+                            size = 240.dp,
+                            textStyle = MaterialTheme.typography.displayMedium,
+                        )
+                    } else {
+                        AsyncImage(
+                            model = contact.imageUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+
+                if (error != null) {
+                    Text(error, color = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    androidx.compose.material3.Button(
+                        onClick = { launchCamera() },
+                        enabled = !submitting,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        if (submitting) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Take photo")
+                        }
+                    }
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { launchGallery() },
+                        enabled = !submitting,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Choose from gallery") }
+                    if (!contact.imageUrl.isNullOrBlank()) {
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = onRemove,
+                            enabled = !submitting,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Remove photo") }
+                    }
+                }
+            }
+        }
+    }
+
+    if (oversize != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = onCancelOversize,
+            title = { Text("Image too large") },
+            text = {
+                Text(
+                    "This image is ${"%.1f".format(oversize.sizeMb)} MB; the server limit is 8 MB. " +
+                        "Downsize it now, or pick another?"
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = onDownsize) { Text("Downsize") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    onCancelOversize()
+                    when (lastSource) {
+                        PhotoSource.Camera -> launchCamera()
+                        PhotoSource.Gallery -> launchGallery()
+                        null -> Unit
+                    }
+                }) { Text("Choose another") }
+            },
+        )
+    }
+}
+
+private fun newCaptureFile(context: android.content.Context): File {
+    val dir = File(context.cacheDir, "captures").apply { mkdirs() }
+    return File(dir, "avatar-${System.currentTimeMillis()}.jpg")
+}
+
+private fun captureUri(context: android.content.Context, file: File): android.net.Uri =
+    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 
 @Composable
 private fun ContactDetailContent(
@@ -195,7 +381,7 @@ private fun ContactDetailContent(
 ) {
     val context = LocalContext.current
     Column(modifier = modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-        Header(contact)
+        Header(contact, onAvatarClick = viewModel::openImageViewer)
 
         if (hasAbout(contact)) {
             Section(title = "About", onAdd = null) { About(contact) }
@@ -299,13 +485,14 @@ private fun ContactDetailContent(
 }
 
 @Composable
-private fun Header(contact: Contact) {
+private fun Header(contact: Contact, onAvatarClick: () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         ContactAvatar(
             imageUrl = contact.imageUrl,
             initials = initialsOf(contact.firstName, contact.lastName, contact.fullName),
             size = 96.dp,
             textStyle = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.clickable(onClick = onAvatarClick),
         )
     }
     if (!contact.active) {

@@ -17,12 +17,15 @@ import at.gdev.contacts.data.network.dto.ContactUpdateRequest
 import at.gdev.contacts.data.network.dto.ContactUrlRequest
 import at.gdev.contacts.data.network.dto.ContactsListResponse
 import kotlinx.serialization.json.JsonElement
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.PUT
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -48,6 +51,16 @@ interface ContactsApi {
 
     @DELETE("contacts/{contact}")
     suspend fun delete(@Path("contact") ulid: String): Response<Unit>
+
+    @Multipart
+    @POST("contacts/{contact}/image")
+    suspend fun uploadImage(
+        @Path("contact") ulid: String,
+        @Part file: MultipartBody.Part,
+    ): ContactDetailResponse
+
+    @DELETE("contacts/{contact}/image")
+    suspend fun deleteImage(@Path("contact") ulid: String): Response<Unit>
 
     @POST("contacts/{contact}/numbers")
     suspend fun createNumber(@Path("contact") ulid: String, @Body body: ContactNumberRequest): JsonElement

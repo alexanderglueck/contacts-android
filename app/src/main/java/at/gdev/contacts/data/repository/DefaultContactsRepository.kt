@@ -54,6 +54,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import retrofit2.Response
 import java.time.LocalDate
@@ -214,6 +217,27 @@ class DefaultContactsRepository @Inject constructor(
 
     override suspend fun deleteContact(id: String): Result<Unit> {
         val result = mutate { ack(api.delete(id)) }
+        if (result.isSuccess) refreshCacheSilently()
+        return result
+    }
+
+    override suspend fun uploadContactImage(
+        id: String,
+        bytes: ByteArray,
+        mimeType: String,
+    ): Result<Unit> {
+        val result = mutate {
+            val body = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+            val filename = if (mimeType.endsWith("/png")) "avatar.png" else "avatar.jpg"
+            val part = MultipartBody.Part.createFormData("file", filename, body)
+            api.uploadImage(id, part)
+        }
+        if (result.isSuccess) refreshCacheSilently()
+        return result
+    }
+
+    override suspend fun removeContactImage(id: String): Result<Unit> {
+        val result = mutate { ack(api.deleteImage(id)) }
         if (result.isSuccess) refreshCacheSilently()
         return result
     }
