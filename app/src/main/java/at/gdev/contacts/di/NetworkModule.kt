@@ -3,6 +3,7 @@ package at.gdev.contacts.di
 import at.gdev.contacts.data.network.ApiConfig
 import at.gdev.contacts.data.network.AuthApi
 import at.gdev.contacts.data.network.AuthInterceptor
+import at.gdev.contacts.data.network.RateLimitInterceptor
 import at.gdev.contacts.data.network.CalendarApi
 import at.gdev.contacts.data.network.ContactsApi
 import at.gdev.contacts.data.network.ReferenceApi
@@ -32,12 +33,16 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttp(authInterceptor: AuthInterceptor): OkHttpClient {
+    fun provideOkHttp(
+        authInterceptor: AuthInterceptor,
+        rateLimitInterceptor: RateLimitInterceptor,
+    ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
         }
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
+            .addInterceptor(rateLimitInterceptor)
             .addInterceptor(logging)
             .build()
     }

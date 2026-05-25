@@ -30,6 +30,15 @@ data class ContactSummaryDto(
     val lastname: String,
     val company: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,
+    val numbers: List<ContactSummaryNumberDto> = emptyList(),
+)
+
+@Serializable
+data class ContactSummaryNumberDto(
+    val ulid: String,
+    val name: String,
+    val number: String,
+    val e164: String? = null,
 )
 
 @Serializable

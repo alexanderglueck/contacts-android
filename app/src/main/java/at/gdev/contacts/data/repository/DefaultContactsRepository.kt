@@ -25,6 +25,7 @@ import at.gdev.contacts.data.network.dto.ContactNoteRequest
 import at.gdev.contacts.data.network.dto.ContactNumberDto
 import at.gdev.contacts.data.network.dto.ContactNumberRequest
 import at.gdev.contacts.data.network.dto.ContactSummaryDto
+import at.gdev.contacts.data.network.dto.ContactSummaryNumberDto
 import at.gdev.contacts.data.network.dto.ContactUpdateRequest
 import at.gdev.contacts.data.network.dto.ContactUrlDto
 import at.gdev.contacts.data.network.dto.ContactUrlRequest
@@ -46,14 +47,9 @@ import at.gdev.contacts.domain.model.ContactUrl
 import at.gdev.contacts.domain.model.NamedRef
 import at.gdev.contacts.domain.repository.ContactsRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import retrofit2.HttpException
@@ -75,12 +71,26 @@ class DefaultContactsRepository @Inject constructor(
     override val summaries: Flow<List<ContactSummary>> = cache.asStateFlow()
 
     override suspend fun refresh(query: String?): Result<Unit> = runCatching {
-        val response = api.list(query = query?.takeIf { it.isNotBlank() })
-        cache.value = response.contacts(json).map { it.toDomain() }
+        val all = fetchAllPages(query)
+        cache.value = all.map { it.toDomain() }
     }.fold(
         onSuccess = { Result.success(Unit) },
         onFailure = { Result.failure(it.toDomainError(json)) },
     )
+
+    private suspend fun fetchAllPages(query: String?): List<ContactSummaryDto> {
+        val q = query?.takeIf { it.isNotBlank() }
+        val all = mutableListOf<ContactSummaryDto>()
+        var page = 1
+        while (true) {
+            val response = api.list(query = q, page = page, perPage = SYNC_PAGE_SIZE)
+            val items = response.contacts(json)
+            all += items
+            if (items.isEmpty() || page >= response.meta.lastPage) break
+            page += 1
+        }
+        return all
+    }
 
     override suspend fun getContact(id: String): Contact? = runCatching {
         api.show(id).data.toDomain()
@@ -145,32 +155,13 @@ class DefaultContactsRepository @Inject constructor(
 
     override suspend fun syncAll(): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
-            val summaries = mutableListOf<ContactSummaryDto>()
-            var page = 1
-            while (true) {
-                val response = api.list(page = page, perPage = SYNC_PAGE_SIZE)
-                val items = response.contacts(json)
-                summaries += items
-                if (items.isEmpty() || page >= response.meta.lastPage) break
-                page += 1
-            }
-
-            val semaphore = Semaphore(SYNC_CONCURRENCY)
+            val summaries = fetchAllPages(query = null)
             val now = System.currentTimeMillis()
-            coroutineScope {
-                summaries.map { summary ->
-                    async {
-                        semaphore.withPermit {
-                            runCatching { api.show(summary.ulid).data }.getOrNull()?.let { detail ->
-                                val contact = detail.toContactEntity(now)
-                                val numbers = detail.numbers.map { it.toNumberEntity(detail.ulid) }
-                                dao.replaceContactWithNumbers(contact, numbers)
-                            }
-                        }
-                    }
-                }.awaitAll()
+            summaries.forEach { summary ->
+                val contact = summary.toContactEntity(now)
+                val numbers = summary.numbers.map { it.toNumberEntity(summary.ulid) }
+                dao.replaceContactWithNumbers(contact, numbers)
             }
-
             dao.pruneContactsNotIn(summaries.map { it.ulid })
             dao.contactCount()
         }.fold(
@@ -425,6 +416,16 @@ class DefaultContactsRepository @Inject constructor(
         syncedAt = now,
     )
 
+    private fun ContactSummaryDto.toContactEntity(now: Long): ContactEntity = ContactEntity(
+        ulid = ulid,
+        fullName = fullname,
+        firstName = firstname,
+        lastName = lastname,
+        company = company,
+        imageUrl = ApiConfig.normalizeImageUrl(imageUrl),
+        syncedAt = now,
+    )
+
     private fun ContactNumberDto.toNumberEntity(contactUlid: String): ContactNumberEntity =
         ContactNumberEntity(
             ulid = ulid,
@@ -432,6 +433,15 @@ class DefaultContactsRepository @Inject constructor(
             name = name,
             number = number,
             digits = number.filter { it.isDigit() },
+        )
+
+    private fun ContactSummaryNumberDto.toNumberEntity(contactUlid: String): ContactNumberEntity =
+        ContactNumberEntity(
+            ulid = ulid,
+            contactUlid = contactUlid,
+            name = name,
+            number = number,
+            digits = (e164 ?: number).filter { it.isDigit() },
         )
 
     private fun ContactDetailDto.toDomain(): Contact = Contact(
@@ -495,7 +505,6 @@ class DefaultContactsRepository @Inject constructor(
 
     private companion object {
         const val SYNC_PAGE_SIZE = 100
-        const val SYNC_CONCURRENCY = 4
         const val SUFFIX_LEN = 9
         const val SUFFIX_MIN = 7
     }
