@@ -35,7 +35,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,9 +46,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import android.Manifest
+import android.content.pm.PackageManager
 import at.gdev.contacts.domain.model.ContactSort
 import at.gdev.contacts.domain.model.ContactSummary
 import at.gdev.contacts.ui.common.ContactAvatar
@@ -61,6 +68,11 @@ fun ContactsListScreen(
     viewModel: ContactsListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+
+    NotificationPermissionGate(
+        pending = viewModel.notificationPromptPending.collectAsState().value,
+        onHandled = viewModel::markNotificationPromptShown,
+    )
 
     Scaffold(
         topBar = {
@@ -136,6 +148,29 @@ fun ContactsListScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Requests the POST_NOTIFICATIONS permission exactly once, the first time the signed-in
+ * user reaches the contacts list. The result is ignored — declining doesn't block anything;
+ * the user can re-enable later via the "Birthday reminders" toggle in Settings.
+ */
+@Composable
+private fun NotificationPermissionGate(pending: Boolean, onHandled: () -> Unit) {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* result ignored */ }
+
+    LaunchedEffect(pending) {
+        if (!pending) return@LaunchedEffect
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        onHandled()
     }
 }
 

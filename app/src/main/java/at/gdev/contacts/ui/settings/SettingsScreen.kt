@@ -27,6 +27,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -38,15 +39,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import android.Manifest
 import at.gdev.contacts.domain.model.Team
 import at.gdev.contacts.ui.calls.CallerIdSetupSheet
+import at.gdev.contacts.ui.notifications.appNotificationSettingsIntent
+import at.gdev.contacts.ui.notifications.findActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,11 +66,23 @@ fun SettingsScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
     var sheetVisible by remember { mutableStateOf(false) }
+    var notificationsEnabled by remember {
+        mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
+    }
+
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled() }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshCallerIdRole()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshCallerIdRole()
+                // Reflect changes the user may have made in system settings.
+                notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -93,6 +114,23 @@ fun SettingsScreen(
                 state = state,
                 onSelect = viewModel::switchTeam,
                 onRetry = viewModel::refreshTeams,
+            )
+            HorizontalDivider()
+            NotificationsSection(
+                enabled = notificationsEnabled,
+                onToggle = {
+                    val activity = context.findActivity()
+                    when {
+                        // Already on — can't revoke programmatically; send them to settings to turn off.
+                        notificationsEnabled -> context.startActivity(appNotificationSettingsIntent(context))
+                        // Denied once but not permanently — re-prompt with the system dialog.
+                        activity != null && ActivityCompat.shouldShowRequestPermissionRationale(
+                            activity, Manifest.permission.POST_NOTIFICATIONS,
+                        ) -> notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        // Permanently denied (or no host activity) — only system settings can re-enable.
+                        else -> context.startActivity(appNotificationSettingsIntent(context))
+                    }
+                },
             )
             HorizontalDivider()
             CallerIdSection(
@@ -136,6 +174,35 @@ private fun AccountSection(state: SettingsUiState) {
                 Spacer(Modifier.height(2.dp))
                 Text("Current team: ${it.name}", style = MaterialTheme.typography.bodySmall)
             }
+        }
+    }
+}
+
+@Composable
+private fun NotificationsSection(enabled: Boolean, onToggle: () -> Unit) {
+    Column {
+        SectionHeader("Notifications")
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Birthday reminders", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    if (enabled) {
+                        "On — you'll get a notification on days your contacts have a birthday."
+                    } else {
+                        "Off — turn on to get notified about today's birthdays."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+            Switch(checked = enabled, onCheckedChange = { onToggle() })
         }
     }
 }

@@ -3,11 +3,13 @@ package at.gdev.contacts.di
 import at.gdev.contacts.data.repository.DefaultAuthRepository
 import at.gdev.contacts.data.repository.DefaultCalendarRepository
 import at.gdev.contacts.data.repository.DefaultContactsRepository
+import at.gdev.contacts.data.repository.DefaultDeviceRepository
 import at.gdev.contacts.data.repository.DefaultReferenceRepository
 import at.gdev.contacts.data.repository.DefaultTeamsRepository
 import at.gdev.contacts.domain.repository.AuthRepository
 import at.gdev.contacts.domain.repository.CalendarRepository
 import at.gdev.contacts.domain.repository.ContactsRepository
+import at.gdev.contacts.domain.repository.DeviceRepository
 import at.gdev.contacts.domain.repository.ReferenceRepository
 import at.gdev.contacts.domain.repository.TeamsRepository
 import dagger.Binds
@@ -39,4 +41,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindCalendarRepository(impl: DefaultCalendarRepository): CalendarRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDeviceRepository(impl: DefaultDeviceRepository): DeviceRepository
 }

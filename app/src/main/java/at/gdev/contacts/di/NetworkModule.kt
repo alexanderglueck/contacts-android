@@ -6,6 +6,7 @@ import at.gdev.contacts.data.network.AuthInterceptor
 import at.gdev.contacts.data.network.RateLimitInterceptor
 import at.gdev.contacts.data.network.CalendarApi
 import at.gdev.contacts.data.network.ContactsApi
+import at.gdev.contacts.data.network.DevicesApi
 import at.gdev.contacts.data.network.ReferenceApi
 import at.gdev.contacts.data.network.TeamsApi
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -76,4 +77,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideCalendarApi(retrofit: Retrofit): CalendarApi = retrofit.create(CalendarApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideDevicesApi(retrofit: Retrofit): DevicesApi = retrofit.create(DevicesApi::class.java)
 }

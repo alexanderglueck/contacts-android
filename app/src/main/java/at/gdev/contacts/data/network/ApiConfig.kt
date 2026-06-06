@@ -1,12 +1,9 @@
 package at.gdev.contacts.data.network
 
 object ApiConfig {
-    // Android emulator maps 10.0.2.2 to the host machine's localhost.
-    // For a physical device, change this to your host's LAN IP (and ensure the backend listens on it).
-    const val ORIGIN = "http://10.0.2.2:8080"
+    const val ORIGIN = "https://contacts.alexanderglueck.at"
     const val BASE_URL = "$ORIGIN/api/v1/"
 
-    // TODO: replace with real password-reset URL once available.
     const val FORGOT_PASSWORD_URL = "$ORIGIN/forgot-password"
 
     /**

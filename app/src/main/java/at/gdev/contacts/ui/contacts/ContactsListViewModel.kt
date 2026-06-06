@@ -3,6 +3,7 @@ package at.gdev.contacts.ui.contacts
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import at.gdev.contacts.data.prefs.ContactListPreferencesStore
+import at.gdev.contacts.data.prefs.NotificationPreferencesStore
 import at.gdev.contacts.domain.model.ContactSort
 import at.gdev.contacts.domain.model.ContactSummary
 import at.gdev.contacts.domain.repository.ContactsRepository
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -43,12 +45,26 @@ data class ContactsListUiState(
 class ContactsListViewModel @Inject constructor(
     private val repository: ContactsRepository,
     private val preferences: ContactListPreferencesStore,
+    private val notificationPreferences: NotificationPreferencesStore,
 ) : ViewModel() {
 
     private val query = MutableStateFlow("")
     private val loading = MutableStateFlow(false)
     private val refreshing = MutableStateFlow(false)
     private val error = MutableStateFlow<String?>(null)
+
+    /**
+     * Emits true once when the one-time notification-permission prompt should be shown
+     * (i.e. the user just reached the list for the first time and we haven't asked yet).
+     */
+    val notificationPromptPending: StateFlow<Boolean> =
+        notificationPreferences.permissionPromptShown
+            .map { shown -> !shown }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun markNotificationPromptShown() {
+        viewModelScope.launch { notificationPreferences.setPermissionPromptShown(true) }
+    }
 
     val state: StateFlow<ContactsListUiState> = combine(
         combine(repository.summaries, query, preferences.sort) { contacts, q, sort -> Triple(contacts, q, sort) },

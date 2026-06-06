@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Contacts</string>
+
+    <!-- Birthday push-notification channel -->
+    <string name="default_notification_channel_id">birthdays</string>
+    <string name="default_notification_channel_name">Birthdays</string>
+    <string name="default_notification_channel_description">Reminders about your contacts\' birthdays today.</string>
 </resources>

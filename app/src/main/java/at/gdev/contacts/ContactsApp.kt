@@ -1,7 +1,10 @@
 package at.gdev.contacts
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.provider.ContactsContract
+import androidx.core.content.getSystemService
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import at.gdev.contacts.data.sync.ContactSyncScheduler
@@ -36,6 +39,20 @@ class ContactsApp : Application(), Configuration.Provider, ImageLoaderFactory {
         super.onCreate()
         syncScheduler.schedulePeriodic()
         notifyDirectoryAvailable()
+        createBirthdayNotificationChannel()
+    }
+
+    /** Channel that birthday push notifications are posted to. */
+    private fun createBirthdayNotificationChannel() {
+        val manager = getSystemService<NotificationManager>() ?: return
+        val channel = NotificationChannel(
+            getString(R.string.default_notification_channel_id),
+            getString(R.string.default_notification_channel_name),
+            NotificationManager.IMPORTANCE_DEFAULT,
+        ).apply {
+            description = getString(R.string.default_notification_channel_description)
+        }
+        manager.createNotificationChannel(channel)
     }
 
     /**

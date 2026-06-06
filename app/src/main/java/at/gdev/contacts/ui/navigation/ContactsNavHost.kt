@@ -26,6 +26,8 @@ import at.gdev.contacts.ui.settings.SettingsScreen
 @Composable
 fun ContactsNavHost(
     sessionViewModel: SessionViewModel = hiltViewModel(),
+    openCalendar: Boolean = false,
+    onCalendarOpened: () -> Unit = {},
 ) {
     val sessionState by sessionViewModel.state.collectAsState()
 
@@ -45,6 +47,17 @@ fun ContactsNavHost(
     val resolved = startDestination ?: return
 
     val navController = rememberNavController()
+
+    // Deep link from a birthday notification: jump to the calendar (which defaults
+    // to today) once the session has resolved to a logged-in user.
+    LaunchedEffect(openCalendar, sessionState) {
+        if (openCalendar && sessionState is SessionState.LoggedIn) {
+            navController.navigate(Routes.CALENDAR) {
+                launchSingleTop = true
+            }
+            onCalendarOpened()
+        }
+    }
 
     NavHost(navController = navController, startDestination = resolved) {
         composable(Routes.LOGIN) {

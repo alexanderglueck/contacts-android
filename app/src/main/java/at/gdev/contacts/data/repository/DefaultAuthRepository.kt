@@ -16,6 +16,7 @@ import at.gdev.contacts.domain.model.AuthUser
 import at.gdev.contacts.domain.model.LoginResult
 import at.gdev.contacts.domain.model.TeamSummary
 import at.gdev.contacts.domain.repository.AuthRepository
+import at.gdev.contacts.domain.repository.DeviceRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -28,6 +29,7 @@ class DefaultAuthRepository @Inject constructor(
     private val json: Json,
     private val syncScheduler: ContactSyncScheduler,
     private val contactsDao: ContactsDao,
+    private val deviceRepository: DeviceRepository,
 ) : AuthRepository {
 
     override val session: Flow<AuthSession?> = tokenStore.session
@@ -49,6 +51,7 @@ class DefaultAuthRepository @Inject constructor(
     }.onSuccess { result ->
         if (result is LoginResult.Authenticated) {
             tokenStore.save(result.session)
+            deviceRepository.registerCurrentDevice()
             syncScheduler.syncNow()
         }
     }.mapError()
@@ -68,6 +71,7 @@ class DefaultAuthRepository @Inject constructor(
         ).toSession()
     }.onSuccess {
         tokenStore.save(it)
+        deviceRepository.registerCurrentDevice()
         syncScheduler.syncNow()
     }.mapError()
 
@@ -90,11 +94,13 @@ class DefaultAuthRepository @Inject constructor(
         ).toSession()
     }.onSuccess {
         tokenStore.save(it)
+        deviceRepository.registerCurrentDevice()
         syncScheduler.syncNow()
     }.mapError()
 
     override suspend fun logout() {
         runCatching { api.logout() }
+        deviceRepository.deregisterCurrentDevice()
         tokenStore.clear()
         syncScheduler.cancelAll()
         contactsDao.clearAll()
