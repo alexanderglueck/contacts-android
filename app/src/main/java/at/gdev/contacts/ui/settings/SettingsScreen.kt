@@ -190,7 +190,7 @@ private fun NotificationsSection(enabled: Boolean, onToggle: () -> Unit) {
                 .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
                 Text("Birthday reminders", style = MaterialTheme.typography.bodyLarge)
                 Text(
                     if (enabled) {
