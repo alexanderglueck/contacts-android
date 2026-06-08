@@ -10,6 +10,9 @@ import at.gdev.contacts.data.network.dto.ContactAddressRequest
 import at.gdev.contacts.data.network.dto.ContactByNumberMatch
 import at.gdev.contacts.data.network.dto.ContactCallDto
 import at.gdev.contacts.data.network.dto.ContactCallRequest
+import at.gdev.contacts.data.network.dto.ContactRelationDto
+import at.gdev.contacts.data.network.dto.CreateContactRelationRequest
+import at.gdev.contacts.data.network.dto.UpdateContactRelationRequest
 import at.gdev.contacts.data.network.dto.ContactCommentDto
 import at.gdev.contacts.data.network.dto.ContactCommentStoreRequest
 import at.gdev.contacts.data.network.dto.ContactCommentUpdateRequest
@@ -35,6 +38,7 @@ import at.gdev.contacts.data.network.toDomainError
 import at.gdev.contacts.domain.model.Contact
 import at.gdev.contacts.domain.model.ContactAddress
 import at.gdev.contacts.domain.model.ContactCall
+import at.gdev.contacts.domain.model.ContactRelation
 import at.gdev.contacts.domain.model.ContactComment
 import at.gdev.contacts.domain.model.ContactDate
 import at.gdev.contacts.domain.model.ContactEmail
@@ -128,6 +132,12 @@ class DefaultContactsRepository @Inject constructor(
     override suspend fun getContact(id: String): Contact? = runCatching {
         api.show(id).data.toDomain()
     }.getOrNull()
+
+    override suspend fun searchContacts(query: String): List<ContactSummary> = runCatching {
+        api.list(query = query.takeIf { it.isNotBlank() }, page = 1, perPage = SEARCH_PAGE_SIZE)
+            .contacts(json)
+            .map { it.toDomain() }
+    }.getOrDefault(emptyList())
 
     override suspend fun lookupByNumber(rawNumber: String): List<ContactLookup> {
         val digits = rawNumber.filter { it.isDigit() }
@@ -363,6 +373,30 @@ class DefaultContactsRepository @Inject constructor(
         ack(api.deleteCall(contactId, callId))
     }
 
+    // ----- Relations -----
+
+    override suspend fun addRelation(
+        contactId: String,
+        relatedContactId: String,
+        forwardLabel: String,
+        inverseLabel: String?,
+    ): Result<Unit> = mutate {
+        api.createRelation(contactId, CreateContactRelationRequest(relatedContactId, forwardLabel, inverseLabel))
+    }
+
+    override suspend fun updateRelation(
+        contactId: String,
+        relationId: String,
+        forwardLabel: String,
+        inverseLabel: String?,
+    ): Result<Unit> = mutate {
+        api.updateRelation(contactId, relationId, UpdateContactRelationRequest(forwardLabel, inverseLabel))
+    }
+
+    override suspend fun deleteRelation(contactId: String, relationId: String): Result<Unit> = mutate {
+        ack(api.deleteRelation(contactId, relationId))
+    }
+
     // ----- Comments -----
 
     override suspend fun listComments(contactId: String): Result<List<ContactComment>> = runCatching {
@@ -569,6 +603,15 @@ class DefaultContactsRepository @Inject constructor(
         dates = dates.map { it.toDomain() },
         calls = calls.map { it.toDomain() },
         giftIdeas = giftIdeas.map { it.toDomain() },
+        relations = relations.map { it.toDomain() },
+    )
+
+    private fun ContactRelationDto.toDomain() = ContactRelation(
+        id = ulid,
+        label = label,
+        inverse = inverse,
+        relatedContactId = contact.ulid,
+        relatedContactName = contact.fullname,
     )
 
     private fun NamedRefDto.toDomain() = NamedRef(id = id, name = name)
@@ -597,6 +640,7 @@ class DefaultContactsRepository @Inject constructor(
 
     private companion object {
         const val SYNC_PAGE_SIZE = 100
+        const val SEARCH_PAGE_SIZE = 20
         const val SUFFIX_LEN = 9
         const val SUFFIX_MIN = 7
     }

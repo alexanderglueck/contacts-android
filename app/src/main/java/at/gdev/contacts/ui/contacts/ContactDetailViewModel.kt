@@ -16,6 +16,8 @@ import at.gdev.contacts.domain.model.ContactEmail
 import at.gdev.contacts.domain.model.ContactGiftIdea
 import at.gdev.contacts.domain.model.ContactNote
 import at.gdev.contacts.domain.model.ContactNumber
+import at.gdev.contacts.domain.model.ContactRelation
+import at.gdev.contacts.domain.model.ContactSummary
 import at.gdev.contacts.domain.model.ContactUrl
 import at.gdev.contacts.domain.model.RecordedCall
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +28,9 @@ import at.gdev.contacts.domain.repository.ContactsRepository
 import at.gdev.contacts.domain.repository.ReferenceRepository
 import at.gdev.contacts.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,6 +56,7 @@ data class ContactDetailUiState(
     val contact: Contact? = null,
     val comments: List<ContactComment> = emptyList(),
     val recordedCalls: List<RecordedCall> = emptyList(),
+    val relationCandidates: List<ContactSummary> = emptyList(),
     val error: String? = null,
     val activeSheet: ActiveSheet = ActiveSheet.None,
     val submitting: Boolean = false,
@@ -74,6 +79,7 @@ sealed interface ActiveSheet {
     data class Address(val existing: ContactAddress?) : ActiveSheet
     data class Call(val existing: ContactCall?, val recorded: RecordedCall? = null) : ActiveSheet
     data object CallPicker : ActiveSheet
+    data class Relation(val existing: ContactRelation?) : ActiveSheet
     data class GiftIdeaItem(val existing: ContactGiftIdea?) : ActiveSheet
     data class Comment(
         val existing: ContactComment? = null,
@@ -96,6 +102,8 @@ class ContactDetailViewModel @Inject constructor(
 
     private val _events = Channel<DetailEvent>(Channel.BUFFERED)
     val events get() = _events.receiveAsFlow()
+
+    private var relationSearchJob: Job? = null
 
     sealed interface DetailEvent {
         data object Deleted : DetailEvent
@@ -160,6 +168,23 @@ class ContactDetailViewModel @Inject constructor(
     fun pickRecordedCall(recorded: RecordedCall) = setSheet(ActiveSheet.Call(existing = null, recorded = recorded))
     fun openAddGiftIdea() = setSheet(ActiveSheet.GiftIdeaItem(null))
     fun openEditGiftIdea(item: ContactGiftIdea) = setSheet(ActiveSheet.GiftIdeaItem(item))
+
+    fun openAddRelation() {
+        _state.update { it.copy(relationCandidates = emptyList()) }
+        setSheet(ActiveSheet.Relation(null))
+        searchRelationCandidates("")
+    }
+    fun openEditRelation(item: ContactRelation) = setSheet(ActiveSheet.Relation(item))
+
+    /** Debounced remote search for the relation contact picker; excludes this contact. */
+    fun searchRelationCandidates(query: String) {
+        relationSearchJob?.cancel()
+        relationSearchJob = viewModelScope.launch {
+            delay(250)
+            val results = repository.searchContacts(query).filter { it.id != contactId }
+            _state.update { it.copy(relationCandidates = results) }
+        }
+    }
 
     fun openAddComment() = setSheet(ActiveSheet.Comment(existing = null, replyToParentId = null))
     fun openReplyComment(parentId: String) = setSheet(ActiveSheet.Comment(existing = null, replyToParentId = parentId))
@@ -363,6 +388,20 @@ class ContactDetailViewModel @Inject constructor(
     }
     fun deleteGiftIdea() = (_state.value.activeSheet as? ActiveSheet.GiftIdeaItem)?.existing?.let { item ->
         submit { repository.deleteGiftIdea(contactId, item.id) }
+    }
+
+    fun saveRelation(relatedContactId: String, forwardLabel: String, inverseLabel: String?) {
+        val sheet = _state.value.activeSheet as? ActiveSheet.Relation ?: return
+        submit {
+            if (sheet.existing == null) {
+                repository.addRelation(contactId, relatedContactId, forwardLabel, inverseLabel)
+            } else {
+                repository.updateRelation(contactId, sheet.existing.id, forwardLabel, inverseLabel)
+            }
+        }
+    }
+    fun deleteRelation() = (_state.value.activeSheet as? ActiveSheet.Relation)?.existing?.let { item ->
+        submit { repository.deleteRelation(contactId, item.id) }
     }
 
     fun saveComment(text: String) {

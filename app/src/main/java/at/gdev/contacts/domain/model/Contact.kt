@@ -55,6 +55,7 @@ data class Contact(
     val dates: List<ContactDate> = emptyList(),
     val calls: List<ContactCall> = emptyList(),
     val giftIdeas: List<ContactGiftIdea> = emptyList(),
+    val relations: List<ContactRelation> = emptyList(),
 ) {
     val displayName: String
         get() = composeDisplayName(titleBefore, firstName, lastName, titleAfter, nickname, fallback = fullName)
@@ -94,4 +95,17 @@ data class ContactGiftIdea(
     val description: String?,
     val url: String?,
     val dueAt: LocalDate?,
+)
+
+/**
+ * A relationship to another contact. [label] is how *this* contact relates to
+ * [relatedContactName] (e.g. "Father"); [inverse] is the reverse (e.g. "Son").
+ * The other contact gets the inverse relation created automatically by the API.
+ */
+data class ContactRelation(
+    val id: String,
+    val label: String,
+    val inverse: String?,
+    val relatedContactId: String,
+    val relatedContactName: String,
 )

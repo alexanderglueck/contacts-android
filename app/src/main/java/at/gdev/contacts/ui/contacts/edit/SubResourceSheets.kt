@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +38,8 @@ import at.gdev.contacts.domain.model.ContactEmail
 import at.gdev.contacts.domain.model.ContactGiftIdea
 import at.gdev.contacts.domain.model.ContactNote
 import at.gdev.contacts.domain.model.ContactNumber
+import at.gdev.contacts.domain.model.ContactRelation
+import at.gdev.contacts.domain.model.ContactSummary
 import at.gdev.contacts.domain.model.ContactUrl
 import at.gdev.contacts.domain.model.NamedRef
 import at.gdev.contacts.domain.model.RecordedCall
@@ -440,6 +443,92 @@ fun CallPickerSheet(
                 }
                 HorizontalDivider()
             }
+        }
+    }
+}
+
+@Composable
+fun RelationSheet(
+    existing: ContactRelation?,
+    candidates: List<ContactSummary>,
+    onQueryChange: (String) -> Unit,
+    submitting: Boolean,
+    error: String?,
+    onDismiss: () -> Unit,
+    onSave: (relatedContactId: String, forwardLabel: String, inverseLabel: String?) -> Unit,
+    onDelete: () -> Unit,
+) {
+    // For a new relation the user first picks the other contact; for an existing
+    // one the contact is fixed (only the labels are editable).
+    var selectedId by rememberSaveable(existing) { mutableStateOf(existing?.relatedContactId) }
+    var selectedName by rememberSaveable(existing) { mutableStateOf(existing?.relatedContactName.orEmpty()) }
+    var query by rememberSaveable(existing) { mutableStateOf("") }
+    var forward by rememberSaveable(existing) { mutableStateOf(existing?.label.orEmpty()) }
+    var inverse by rememberSaveable(existing) { mutableStateOf(existing?.inverse.orEmpty()) }
+
+    EditSheetScaffold(
+        title = if (existing == null) "Add relationship" else "Edit relationship",
+        isNew = existing == null,
+        submitting = submitting,
+        error = error,
+        canSave = selectedId != null && forward.isNotBlank(),
+        onDismiss = onDismiss,
+        onSave = { selectedId?.let { onSave(it, forward.trim(), inverse.trim().takeIf { s -> s.isNotBlank() }) } },
+        onDelete = onDelete,
+        deleteSubject = "relationship",
+    ) {
+        if (selectedId == null) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it; onQueryChange(it) },
+                label = { Text("Search contacts") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            candidates.forEach { c ->
+                Text(
+                    c.displayName,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { selectedId = c.id; selectedName = c.displayName }
+                        .padding(vertical = 10.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                HorizontalDivider()
+            }
+        } else {
+            Text(
+                "Related contact",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.outline,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(selectedName, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                if (existing == null) {
+                    TextButton(onClick = { selectedId = null }) { Text("Change") }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = forward,
+                onValueChange = { forward = it },
+                label = { Text("Relationship") },
+                placeholder = { Text("e.g. Father") },
+                supportingText = { Text("How this contact relates to ${selectedName.ifBlank { "them" }}") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = inverse,
+                onValueChange = { inverse = it },
+                label = { Text("Reverse (optional)") },
+                placeholder = { Text("e.g. Son") },
+                supportingText = { Text("How ${selectedName.ifBlank { "they" }} relate back") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

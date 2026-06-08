@@ -58,6 +58,19 @@ data class ContactGiftIdeaRequest(
     @SerialName("due_at") val dueAt: String? = null,
 )
 
+@Serializable
+data class CreateContactRelationRequest(
+    @SerialName("related_contact") val relatedContact: String,
+    @SerialName("forward_label") val forwardLabel: String,
+    @SerialName("inverse_label") val inverseLabel: String? = null,
+)
+
+@Serializable
+data class UpdateContactRelationRequest(
+    @SerialName("forward_label") val forwardLabel: String,
+    @SerialName("inverse_label") val inverseLabel: String? = null,
+)
+
 /**
  * Server requires `salutation`, `firstname`, `lastname` on create; everything else
  * is optional. `explicitNulls = false` keeps unset fields out of the payload.

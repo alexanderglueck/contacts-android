@@ -12,6 +12,9 @@ interface ContactsRepository {
     suspend fun refresh(query: String? = null): Result<Unit>
     suspend fun getContact(id: String): Contact?
 
+    /** One-shot remote search for pickers (does not touch the [summaries] cache). */
+    suspend fun searchContacts(query: String): List<ContactSummary>
+
     suspend fun lookupByNumber(rawNumber: String): List<ContactLookup>
     suspend fun syncAll(): Result<Int>
 
@@ -83,6 +86,23 @@ interface ContactsRepository {
     suspend fun addComment(contactId: String, text: String, parentId: String? = null): Result<Unit>
     suspend fun updateComment(contactId: String, commentId: String, text: String): Result<Unit>
     suspend fun deleteComment(contactId: String, commentId: String): Result<Unit>
+
+    // Relations
+    suspend fun addRelation(
+        contactId: String,
+        relatedContactId: String,
+        forwardLabel: String,
+        inverseLabel: String?,
+    ): Result<Unit>
+
+    suspend fun updateRelation(
+        contactId: String,
+        relationId: String,
+        forwardLabel: String,
+        inverseLabel: String?,
+    ): Result<Unit>
+
+    suspend fun deleteRelation(contactId: String, relationId: String): Result<Unit>
 
     // Gift ideas
     suspend fun addGiftIdea(

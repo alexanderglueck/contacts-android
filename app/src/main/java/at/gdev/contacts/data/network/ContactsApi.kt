@@ -6,6 +6,8 @@ import at.gdev.contacts.data.network.dto.ContactCallRequest
 import at.gdev.contacts.data.network.dto.ContactCommentStoreRequest
 import at.gdev.contacts.data.network.dto.ContactCommentUpdateRequest
 import at.gdev.contacts.data.network.dto.ContactCommentsResponse
+import at.gdev.contacts.data.network.dto.CreateContactRelationRequest
+import at.gdev.contacts.data.network.dto.UpdateContactRelationRequest
 import at.gdev.contacts.data.network.dto.ContactDateRequest
 import at.gdev.contacts.data.network.dto.ContactDetailResponse
 import at.gdev.contacts.data.network.dto.ContactsStoreRequest
@@ -188,6 +190,25 @@ interface ContactsApi {
     suspend fun deleteGiftIdea(
         @Path("contact") ulid: String,
         @Path("gift_idea") giftId: String,
+    ): Response<Unit>
+
+    @POST("contacts/{contact}/relations")
+    suspend fun createRelation(
+        @Path("contact") ulid: String,
+        @Body body: CreateContactRelationRequest,
+    ): JsonElement
+
+    @PUT("contacts/{contact}/relations/{relation}")
+    suspend fun updateRelation(
+        @Path("contact") ulid: String,
+        @Path("relation") relationId: String,
+        @Body body: UpdateContactRelationRequest,
+    ): JsonElement
+
+    @DELETE("contacts/{contact}/relations/{relation}")
+    suspend fun deleteRelation(
+        @Path("contact") ulid: String,
+        @Path("relation") relationId: String,
     ): Response<Unit>
 
     @GET("contacts/{contact}/comments")

@@ -79,6 +79,7 @@ import at.gdev.contacts.domain.model.ContactAddress
 import at.gdev.contacts.domain.model.ContactCall
 import at.gdev.contacts.data.util.DateTimes
 import at.gdev.contacts.domain.model.ContactComment
+import at.gdev.contacts.domain.model.ContactRelation
 import at.gdev.contacts.domain.model.RecordedCall
 import at.gdev.contacts.domain.model.ContactDate
 import at.gdev.contacts.domain.model.ContactEmail
@@ -92,6 +93,7 @@ import at.gdev.contacts.ui.contacts.edit.CallPickerSheet
 import at.gdev.contacts.ui.contacts.edit.CallSheet
 import at.gdev.contacts.ui.contacts.edit.CommentSheet
 import at.gdev.contacts.ui.contacts.edit.DateSheet
+import at.gdev.contacts.ui.contacts.edit.RelationSheet
 import at.gdev.contacts.ui.contacts.edit.EmailSheet
 import at.gdev.contacts.ui.contacts.edit.GiftIdeaSheet
 import at.gdev.contacts.ui.contacts.edit.NoteSheet
@@ -106,6 +108,7 @@ import at.gdev.contacts.ui.util.formatMonthDay
 fun ContactDetailScreen(
     onBack: () -> Unit,
     onEditBase: (contactId: String) -> Unit,
+    onContactClick: (contactId: String) -> Unit = {},
     viewModel: ContactDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -173,6 +176,7 @@ fun ContactDetailScreen(
                 contact = state.contact!!,
                 comments = state.comments,
                 recordedCalls = state.recordedCalls,
+                onContactClick = onContactClick,
                 viewModel = viewModel,
                 modifier = Modifier
                     .padding(padding)
@@ -411,6 +415,7 @@ private fun ContactDetailContent(
     contact: Contact,
     comments: List<ContactComment>,
     recordedCalls: List<RecordedCall>,
+    onContactClick: (String) -> Unit,
     viewModel: ContactDetailViewModel,
     modifier: Modifier = Modifier,
 ) {
@@ -507,6 +512,18 @@ private fun ContactDetailContent(
             EmptyOr(contact.calls) {
                 contact.calls.forEach { item ->
                     CallRow(item) { viewModel.openEditCall(item) }
+                }
+            }
+        }
+
+        Section(title = "Relationships", onAdd = viewModel::openAddRelation) {
+            EmptyOr(contact.relations) {
+                contact.relations.forEach { item ->
+                    RelationRow(
+                        item = item,
+                        onOpen = { onContactClick(item.relatedContactId) },
+                        onEdit = { viewModel.openEditRelation(item) },
+                    )
                 }
             }
         }
@@ -747,6 +764,17 @@ private fun CallRow(item: ContactCall, onClick: () -> Unit) {
 }
 
 @Composable
+private fun RelationRow(item: ContactRelation, onOpen: () -> Unit, onEdit: () -> Unit) {
+    // Tap the row to jump to the related contact; the edit icon adjusts the labels.
+    LabeledLine(
+        label = "${item.label} of",
+        value = item.relatedContactName,
+        onClick = onOpen,
+        trailing = { ActionIcon(Icons.Filled.Edit, "Edit relationship", onEdit) },
+    )
+}
+
+@Composable
 private fun GiftRow(item: ContactGiftIdea, onClick: () -> Unit) {
     val context = LocalContext.current
     Column(
@@ -855,6 +883,17 @@ private fun Sheets(state: ContactDetailUiState, viewModel: ContactDetailViewMode
             onDismiss = viewModel::closeSheet,
             onSave = viewModel::saveGiftIdea,
             onDelete = viewModel::deleteGiftIdea,
+        )
+
+        is ActiveSheet.Relation -> RelationSheet(
+            existing = sheet.existing,
+            candidates = state.relationCandidates,
+            onQueryChange = viewModel::searchRelationCandidates,
+            submitting = state.submitting,
+            error = state.sheetError,
+            onDismiss = viewModel::closeSheet,
+            onSave = viewModel::saveRelation,
+            onDelete = viewModel::deleteRelation,
         )
 
         is ActiveSheet.Comment -> CommentSheet(

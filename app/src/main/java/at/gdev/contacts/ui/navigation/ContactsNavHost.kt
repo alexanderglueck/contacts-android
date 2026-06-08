@@ -106,6 +106,7 @@ fun ContactsNavHost(
             ContactDetailScreen(
                 onBack = { navController.popBackStack() },
                 onEditBase = { id -> navController.navigate(Routes.contactEdit(id)) },
+                onContactClick = { id -> navController.navigate(Routes.contactDetail(id)) },
             )
         }
         composable(Routes.CONTACT_NEW) {

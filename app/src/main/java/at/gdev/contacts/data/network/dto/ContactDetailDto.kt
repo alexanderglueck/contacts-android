@@ -46,7 +46,21 @@ data class ContactDetailDto(
     val dates: List<ContactDateDto> = emptyList(),
     val calls: List<ContactCallDto> = emptyList(),
     @SerialName("gift_ideas") val giftIdeas: List<ContactGiftIdeaDto> = emptyList(),
+    val relations: List<ContactRelationDto> = emptyList(),
 )
+
+@Serializable
+data class ContactRelationDto(
+    val ulid: String,
+    /** This contact's role toward [contact], e.g. "Father". */
+    val label: String,
+    /** The other contact's role back, e.g. "Son". */
+    val inverse: String? = null,
+    val contact: RelatedContactDto,
+)
+
+@Serializable
+data class RelatedContactDto(val ulid: String, val fullname: String)
 
 @Serializable
 data class NamedRefDto(val id: Int, val name: String)
