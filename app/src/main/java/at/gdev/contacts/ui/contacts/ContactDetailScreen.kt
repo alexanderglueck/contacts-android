@@ -562,7 +562,11 @@ private fun About(contact: Contact) {
         MarkdownText(it)
         Spacer(Modifier.height(8.dp))
     }
-    contact.dateOfBirth?.let { LabeledLine("Date of birth", context.formatDate(it)) }
+    contact.dateOfBirth?.let {
+        // Year 1900 is the sentinel for "birth year unknown" — show day/month only.
+        val formatted = if (it.year == UNKNOWN_BIRTH_YEAR) context.formatMonthDay(it) else context.formatDate(it)
+        LabeledLine("Date of birth", formatted)
+    }
     contact.firstMet?.takeIf { it.isNotBlank() }?.let {
         Spacer(Modifier.height(4.dp))
         Text("First met", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
@@ -967,6 +971,9 @@ private fun hasIdentifiers(contact: Contact): Boolean =
     !contact.customId.isNullOrBlank() ||
             !contact.iban.isNullOrBlank() ||
             !contact.vatin.isNullOrBlank()
+
+/** Sentinel birth year meaning "exact year unknown" — the date of birth shows day/month only. */
+private const val UNKNOWN_BIRTH_YEAR = 1900
 
 private fun dial(context: Context, number: String) {
     fire(context, Intent(Intent.ACTION_DIAL, "tel:$number".toUri()))
