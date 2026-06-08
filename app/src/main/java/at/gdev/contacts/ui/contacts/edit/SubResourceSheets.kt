@@ -2,14 +2,21 @@ package at.gdev.contacts.ui.contacts.edit
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -18,7 +25,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -450,14 +459,20 @@ fun CallPickerSheet(
 @Composable
 fun RelationSheet(
     existing: ContactRelation?,
+    currentContactName: String,
     candidates: List<ContactSummary>,
+    candidatesLoading: Boolean,
+    candidatesLoadingMore: Boolean,
     onQueryChange: (String) -> Unit,
+    onLoadMore: () -> Unit,
     submitting: Boolean,
     error: String?,
     onDismiss: () -> Unit,
     onSave: (relatedContactId: String, forwardLabel: String, inverseLabel: String?) -> Unit,
     onDelete: () -> Unit,
 ) {
+    val thisName = currentContactName.ifBlank { "This contact" }
+    val listState = rememberLazyListState()
     // For a new relation the user first picks the other contact; for an existing
     // one the contact is fixed (only the labels are editable).
     var selectedId by rememberSaveable(existing) { mutableStateOf(existing?.relatedContactId) }
@@ -476,6 +491,8 @@ fun RelationSheet(
         onSave = { selectedId?.let { onSave(it, forward.trim(), inverse.trim().takeIf { s -> s.isNotBlank() }) } },
         onDelete = onDelete,
         deleteSubject = "relationship",
+        // Fully expand so dragging the candidate list scrolls it instead of closing the sheet.
+        skipPartiallyExpanded = true,
     ) {
         if (selectedId == null) {
             OutlinedTextField(
@@ -486,16 +503,51 @@ fun RelationSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
-            candidates.forEach { c ->
-                Text(
-                    c.displayName,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { selectedId = c.id; selectedName = c.displayName }
-                        .padding(vertical = 10.dp),
-                    style = MaterialTheme.typography.bodyLarge,
+            when {
+                candidatesLoading -> Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                }
+                candidates.isEmpty() -> Text(
+                    "No contacts found",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(vertical = 12.dp),
                 )
-                HorizontalDivider()
+                // Pages of 20 are fetched as you scroll toward the bottom.
+                else -> {
+                    LaunchedEffect(listState, candidates.size) {
+                        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+                            .collect { lastVisible ->
+                                if (lastVisible >= candidates.size - 3) onLoadMore()
+                            }
+                    }
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+                        items(candidates, key = { it.id }) { c ->
+                            Text(
+                                c.displayName,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedId = c.id; selectedName = c.displayName }
+                                    .padding(vertical = 10.dp),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            HorizontalDivider()
+                        }
+                        if (candidatesLoadingMore) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         } else {
             Text(
@@ -509,13 +561,16 @@ fun RelationSheet(
                     TextButton(onClick = { selectedId = null }) { Text("Change") }
                 }
             }
+            val otherName = selectedName.ifBlank { "they" }
+            // forward_label = what the OTHER contact is to this one (what shows on
+            // this page); inverse_label = the reverse (optional, mirrors if blank).
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = forward,
                 onValueChange = { forward = it },
-                label = { Text("Relationship") },
-                placeholder = { Text("e.g. Father") },
-                supportingText = { Text("How this contact relates to ${selectedName.ifBlank { "them" }}") },
+                label = { Text("$otherName is the…") },
+                placeholder = { Text("e.g. Mother") },
+                supportingText = { Text("…of $thisName  (this is what shows on this page)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -523,9 +578,9 @@ fun RelationSheet(
             OutlinedTextField(
                 value = inverse,
                 onValueChange = { inverse = it },
-                label = { Text("Reverse (optional)") },
+                label = { Text("$thisName is the… (optional)") },
                 placeholder = { Text("e.g. Son") },
-                supportingText = { Text("How ${selectedName.ifBlank { "they" }} relate back") },
+                supportingText = { Text("…of $otherName — leave blank if it's the same both ways") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )

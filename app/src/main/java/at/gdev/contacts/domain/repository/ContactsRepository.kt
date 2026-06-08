@@ -7,13 +7,16 @@ import at.gdev.contacts.domain.model.ContactSummary
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
+/** One page of picker search results plus whether more pages exist. */
+data class ContactSearchPage(val contacts: List<ContactSummary>, val hasMore: Boolean)
+
 interface ContactsRepository {
     val summaries: Flow<List<ContactSummary>>
     suspend fun refresh(query: String? = null): Result<Unit>
     suspend fun getContact(id: String): Contact?
 
-    /** One-shot remote search for pickers (does not touch the [summaries] cache). */
-    suspend fun searchContacts(query: String): List<ContactSummary>
+    /** Paginated remote search for pickers (does not touch the [summaries] cache). */
+    suspend fun searchContacts(query: String, page: Int = 1): ContactSearchPage
 
     suspend fun lookupByNumber(rawNumber: String): List<ContactLookup>
     suspend fun syncAll(): Result<Int>

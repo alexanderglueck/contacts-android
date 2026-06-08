@@ -51,6 +51,7 @@ import at.gdev.contacts.domain.model.ContactSummary
 import at.gdev.contacts.domain.model.ContactUrl
 import at.gdev.contacts.domain.model.NamedRef
 import at.gdev.contacts.domain.model.composeDisplayName
+import at.gdev.contacts.domain.repository.ContactSearchPage
 import at.gdev.contacts.domain.repository.ContactsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -133,11 +134,13 @@ class DefaultContactsRepository @Inject constructor(
         api.show(id).data.toDomain()
     }.getOrNull()
 
-    override suspend fun searchContacts(query: String): List<ContactSummary> = runCatching {
-        api.list(query = query.takeIf { it.isNotBlank() }, page = 1, perPage = SEARCH_PAGE_SIZE)
-            .contacts(json)
-            .map { it.toDomain() }
-    }.getOrDefault(emptyList())
+    override suspend fun searchContacts(query: String, page: Int): ContactSearchPage = runCatching {
+        val response = api.list(query = query.takeIf { it.isNotBlank() }, page = page, perPage = SEARCH_PAGE_SIZE)
+        ContactSearchPage(
+            contacts = response.contacts(json).map { it.toDomain() },
+            hasMore = page < response.meta.lastPage,
+        )
+    }.getOrDefault(ContactSearchPage(emptyList(), hasMore = false))
 
     override suspend fun lookupByNumber(rawNumber: String): List<ContactLookup> {
         val digits = rawNumber.filter { it.isDigit() }

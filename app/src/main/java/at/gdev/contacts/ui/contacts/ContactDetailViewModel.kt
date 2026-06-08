@@ -57,6 +57,8 @@ data class ContactDetailUiState(
     val comments: List<ContactComment> = emptyList(),
     val recordedCalls: List<RecordedCall> = emptyList(),
     val relationCandidates: List<ContactSummary> = emptyList(),
+    val relationCandidatesLoading: Boolean = false,
+    val relationCandidatesLoadingMore: Boolean = false,
     val error: String? = null,
     val activeSheet: ActiveSheet = ActiveSheet.None,
     val submitting: Boolean = false,
@@ -104,6 +106,9 @@ class ContactDetailViewModel @Inject constructor(
     val events get() = _events.receiveAsFlow()
 
     private var relationSearchJob: Job? = null
+    private var relationQuery = ""
+    private var relationPage = 1
+    private var relationHasMore = false
 
     sealed interface DetailEvent {
         data object Deleted : DetailEvent
@@ -179,10 +184,46 @@ class ContactDetailViewModel @Inject constructor(
     /** Debounced remote search for the relation contact picker; excludes this contact. */
     fun searchRelationCandidates(query: String) {
         relationSearchJob?.cancel()
+        relationQuery = query
+        relationPage = 1
         relationSearchJob = viewModelScope.launch {
+            _state.update { it.copy(relationCandidatesLoading = true) }
             delay(250)
-            val results = repository.searchContacts(query).filter { it.id != contactId }
-            _state.update { it.copy(relationCandidates = results) }
+            val page = repository.searchContacts(query, page = 1)
+            relationHasMore = page.hasMore
+            _state.update {
+                it.copy(
+                    relationCandidates = page.contacts.filter { c -> c.id != contactId },
+                    relationCandidatesLoading = false,
+                )
+            }
+        }
+    }
+
+    /** Loads the next page of candidates when the picker is scrolled near the bottom. */
+    fun loadMoreRelationCandidates() {
+        if (!relationHasMore) return
+        val s = _state.value
+        if (s.relationCandidatesLoading || s.relationCandidatesLoadingMore) return
+        val nextPage = relationPage + 1
+        val queryAtStart = relationQuery
+        viewModelScope.launch {
+            _state.update { it.copy(relationCandidatesLoadingMore = true) }
+            val page = repository.searchContacts(queryAtStart, page = nextPage)
+            if (queryAtStart != relationQuery) {
+                // A newer search superseded this load; drop the stale page.
+                _state.update { it.copy(relationCandidatesLoadingMore = false) }
+                return@launch
+            }
+            relationPage = nextPage
+            relationHasMore = page.hasMore
+            val more = page.contacts.filter { c -> c.id != contactId }
+            _state.update {
+                it.copy(
+                    relationCandidates = (it.relationCandidates + more).distinctBy { c -> c.id },
+                    relationCandidatesLoadingMore = false,
+                )
+            }
         }
     }
 

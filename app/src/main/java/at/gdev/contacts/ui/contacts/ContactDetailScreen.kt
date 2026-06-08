@@ -765,9 +765,11 @@ private fun CallRow(item: ContactCall, onClick: () -> Unit) {
 
 @Composable
 private fun RelationRow(item: ContactRelation, onOpen: () -> Unit, onEdit: () -> Unit) {
-    // Tap the row to jump to the related contact; the edit icon adjusts the labels.
+    // `label` is what the related contact is to the viewed one (e.g. "Mother"),
+    // so it labels the related person's name. Tap the row to jump to that contact;
+    // the edit icon adjusts the labels.
     LabeledLine(
-        label = "${item.label} of",
+        label = item.label,
         value = item.relatedContactName,
         onClick = onOpen,
         trailing = { ActionIcon(Icons.Filled.Edit, "Edit relationship", onEdit) },
@@ -887,8 +889,12 @@ private fun Sheets(state: ContactDetailUiState, viewModel: ContactDetailViewMode
 
         is ActiveSheet.Relation -> RelationSheet(
             existing = sheet.existing,
+            currentContactName = state.contact?.displayName.orEmpty(),
             candidates = state.relationCandidates,
+            candidatesLoading = state.relationCandidatesLoading,
+            candidatesLoadingMore = state.relationCandidatesLoadingMore,
             onQueryChange = viewModel::searchRelationCandidates,
+            onLoadMore = viewModel::loadMoreRelationCandidates,
             submitting = state.submitting,
             error = state.sheetError,
             onDismiss = viewModel::closeSheet,
