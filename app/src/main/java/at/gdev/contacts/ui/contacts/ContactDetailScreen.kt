@@ -12,12 +12,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -75,7 +77,9 @@ import at.gdev.contacts.ui.common.initialsOf
 import at.gdev.contacts.domain.model.Contact
 import at.gdev.contacts.domain.model.ContactAddress
 import at.gdev.contacts.domain.model.ContactCall
+import at.gdev.contacts.data.util.DateTimes
 import at.gdev.contacts.domain.model.ContactComment
+import at.gdev.contacts.domain.model.RecordedCall
 import at.gdev.contacts.domain.model.ContactDate
 import at.gdev.contacts.domain.model.ContactEmail
 import at.gdev.contacts.domain.model.ContactGiftIdea
@@ -84,6 +88,7 @@ import at.gdev.contacts.domain.model.ContactNumber
 import at.gdev.contacts.domain.model.ContactUrl
 import at.gdev.contacts.domain.model.NamedRef
 import at.gdev.contacts.ui.contacts.edit.AddressSheet
+import at.gdev.contacts.ui.contacts.edit.CallPickerSheet
 import at.gdev.contacts.ui.contacts.edit.CallSheet
 import at.gdev.contacts.ui.contacts.edit.CommentSheet
 import at.gdev.contacts.ui.contacts.edit.DateSheet
@@ -92,7 +97,9 @@ import at.gdev.contacts.ui.contacts.edit.GiftIdeaSheet
 import at.gdev.contacts.ui.contacts.edit.NoteSheet
 import at.gdev.contacts.ui.contacts.edit.NumberSheet
 import at.gdev.contacts.ui.contacts.edit.UrlSheet
-import java.time.format.DateTimeFormatter
+import at.gdev.contacts.ui.util.formatDate
+import at.gdev.contacts.ui.util.formatDateTime
+import at.gdev.contacts.ui.util.formatMonthDay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -165,6 +172,7 @@ fun ContactDetailScreen(
             else -> ContactDetailContent(
                 contact = state.contact!!,
                 comments = state.comments,
+                recordedCalls = state.recordedCalls,
                 viewModel = viewModel,
                 modifier = Modifier
                     .padding(padding)
@@ -402,6 +410,7 @@ private fun ImageViewerDialog(
 private fun ContactDetailContent(
     contact: Contact,
     comments: List<ContactComment>,
+    recordedCalls: List<RecordedCall>,
     viewModel: ContactDetailViewModel,
     modifier: Modifier = Modifier,
 ) {
@@ -485,6 +494,16 @@ private fun ContactDetailContent(
         }
 
         Section(title = "Call history", onAdd = viewModel::openAddCall) {
+            if (recordedCalls.isNotEmpty()) {
+                TextButton(
+                    onClick = viewModel::openCallPicker,
+                    contentPadding = PaddingValues(horizontal = 0.dp),
+                ) {
+                    Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("From recent calls (${recordedCalls.size})")
+                }
+            }
             EmptyOr(contact.calls) {
                 contact.calls.forEach { item ->
                     CallRow(item) { viewModel.openEditCall(item) }
@@ -538,11 +557,12 @@ private fun Header(contact: Contact, onAvatarClick: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun About(contact: Contact) {
+    val context = LocalContext.current
     contact.note?.takeIf { it.isNotBlank() }?.let {
         MarkdownText(it)
         Spacer(Modifier.height(8.dp))
     }
-    contact.dateOfBirth?.let { LabeledLine("Date of birth", DISPLAY_DATE.format(it)) }
+    contact.dateOfBirth?.let { LabeledLine("Date of birth", context.formatDate(it)) }
     contact.firstMet?.takeIf { it.isNotBlank() }?.let {
         Spacer(Modifier.height(4.dp))
         Text("First met", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
@@ -551,7 +571,7 @@ private fun About(contact: Contact) {
     }
     contact.diedAt?.let {
         val cause = contact.diedFrom?.takeIf { c -> c.isNotBlank() }?.let { c -> " ($c)" }.orEmpty()
-        LabeledLine("Died", DISPLAY_DATE.format(it) + cause)
+        LabeledLine("Died", context.formatDate(it) + cause)
     }
     contact.gender?.let { LabeledLine("Gender", it.name.replaceFirstChar(Char::uppercaseChar)) }
     contact.nationality?.let { LabeledLine("Nationality", it.name) }
@@ -683,8 +703,9 @@ private fun AddressRow(item: ContactAddress, onClick: () -> Unit, onOpenMap: () 
 
 @Composable
 private fun DateRow(item: ContactDate, onClick: () -> Unit) {
+    val context = LocalContext.current
     val formatted = item.date?.let {
-        if (item.skipYear) DISPLAY_DATE_NO_YEAR.format(it) else DISPLAY_DATE.format(it)
+        if (item.skipYear) context.formatMonthDay(it) else context.formatDate(it)
     } ?: "—"
     LabeledLine(label = item.name, value = formatted, onClick = onClick)
 }
@@ -706,13 +727,14 @@ private fun NoteRow(item: ContactNote, onClick: () -> Unit) {
 
 @Composable
 private fun CallRow(item: ContactCall, onClick: () -> Unit) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
     ) {
-        val when_ = item.calledAt?.replace('T', ' ')?.take(16) ?: "—"
+        val when_ = context.formatDateTime(DateTimes.instantToLocal(item.calledAt))
         Text(when_, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
         if (!item.note.isNullOrBlank()) {
             MarkdownText(item.note)
@@ -722,6 +744,7 @@ private fun CallRow(item: ContactCall, onClick: () -> Unit) {
 
 @Composable
 private fun GiftRow(item: ContactGiftIdea, onClick: () -> Unit) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -737,7 +760,7 @@ private fun GiftRow(item: ContactGiftIdea, onClick: () -> Unit) {
         }
         item.dueAt?.let {
             Text(
-                "Due ${DISPLAY_DATE.format(it)}",
+                "Due ${context.formatDate(it)}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline,
             )
@@ -807,11 +830,18 @@ private fun Sheets(state: ContactDetailUiState, viewModel: ContactDetailViewMode
 
         is ActiveSheet.Call -> CallSheet(
             existing = sheet.existing,
+            recorded = sheet.recorded,
             submitting = state.submitting,
             error = state.sheetError,
             onDismiss = viewModel::closeSheet,
             onSave = viewModel::saveCall,
             onDelete = viewModel::deleteCall,
+        )
+
+        ActiveSheet.CallPicker -> CallPickerSheet(
+            recordedCalls = state.recordedCalls,
+            onPick = viewModel::pickRecordedCall,
+            onDismiss = viewModel::closeSheet,
         )
 
         is ActiveSheet.GiftIdeaItem -> GiftIdeaSheet(
@@ -887,6 +917,7 @@ private fun CommentRow(
     onEdit: () -> Unit,
     onReply: () -> Unit,
 ) {
+    val context = LocalContext.current
     val startPadding = if (indent) 24.dp else 0.dp
     Column(
         modifier = Modifier
@@ -899,7 +930,7 @@ private fun CommentRow(
             Column(modifier = Modifier.weight(1f)) {
                 val whoWhen = listOfNotNull(
                     comment.owner?.name,
-                    comment.createdAt.replace('T', ' ').take(16),
+                    DateTimes.instantToLocal(comment.createdAt)?.let { context.formatDateTime(it) },
                 ).joinToString(" · ")
                 Text(
                     whoWhen,
@@ -936,9 +967,6 @@ private fun hasIdentifiers(contact: Contact): Boolean =
     !contact.customId.isNullOrBlank() ||
             !contact.iban.isNullOrBlank() ||
             !contact.vatin.isNullOrBlank()
-
-private val DISPLAY_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
-private val DISPLAY_DATE_NO_YEAR: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.")
 
 private fun dial(context: Context, number: String) {
     fire(context, Intent(Intent.ACTION_DIAL, "tel:$number".toUri()))

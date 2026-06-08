@@ -3,7 +3,9 @@ package at.gdev.contacts.ui.contacts
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import at.gdev.contacts.data.local.CallEventStore
 import at.gdev.contacts.data.network.ValidationException
+import at.gdev.contacts.data.util.DateTimes
 import at.gdev.contacts.data.util.downsizeJpeg
 import at.gdev.contacts.domain.model.Contact
 import at.gdev.contacts.domain.model.ContactAddress
@@ -15,6 +17,7 @@ import at.gdev.contacts.domain.model.ContactGiftIdea
 import at.gdev.contacts.domain.model.ContactNote
 import at.gdev.contacts.domain.model.ContactNumber
 import at.gdev.contacts.domain.model.ContactUrl
+import at.gdev.contacts.domain.model.RecordedCall
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
@@ -31,7 +34,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import java.time.LocalDateTime
+import java.time.LocalTime
 import javax.inject.Inject
 
 data class OversizeImage(val bytes: ByteArray, val mimeType: String) {
@@ -47,6 +51,7 @@ data class ContactDetailUiState(
     val loading: Boolean = true,
     val contact: Contact? = null,
     val comments: List<ContactComment> = emptyList(),
+    val recordedCalls: List<RecordedCall> = emptyList(),
     val error: String? = null,
     val activeSheet: ActiveSheet = ActiveSheet.None,
     val submitting: Boolean = false,
@@ -67,7 +72,8 @@ sealed interface ActiveSheet {
     data class Note(val existing: ContactNote?) : ActiveSheet
     data class DateItem(val existing: ContactDate?) : ActiveSheet
     data class Address(val existing: ContactAddress?) : ActiveSheet
-    data class Call(val existing: ContactCall?) : ActiveSheet
+    data class Call(val existing: ContactCall?, val recorded: RecordedCall? = null) : ActiveSheet
+    data object CallPicker : ActiveSheet
     data class GiftIdeaItem(val existing: ContactGiftIdea?) : ActiveSheet
     data class Comment(
         val existing: ContactComment? = null,
@@ -80,6 +86,7 @@ class ContactDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: ContactsRepository,
     private val referenceRepository: ReferenceRepository,
+    private val callEventStore: CallEventStore,
 ) : ViewModel() {
 
     private val contactId: String = checkNotNull(savedStateHandle[Routes.ARG_CONTACT_ID])
@@ -108,13 +115,19 @@ class ContactDetailViewModel @Inject constructor(
             val commentsDeferred = async {
                 repository.listComments(contactId).getOrDefault(emptyList())
             }
+            val recordedDeferred = async {
+                runCatching { callEventStore.recordedFor(contactId, System.currentTimeMillis()) }
+                    .getOrDefault(emptyList())
+            }
             val contact = contactDeferred.await()
             val comments = commentsDeferred.await()
+            val recorded = recordedDeferred.await()
             _state.update {
                 it.copy(
                     loading = false,
                     contact = contact,
                     comments = comments,
+                    recordedCalls = recorded,
                     error = if (contact == null) "Contact not found" else null,
                 )
             }
@@ -143,6 +156,8 @@ class ContactDetailViewModel @Inject constructor(
     }
     fun openAddCall() = setSheet(ActiveSheet.Call(null))
     fun openEditCall(item: ContactCall) = setSheet(ActiveSheet.Call(item))
+    fun openCallPicker() = setSheet(ActiveSheet.CallPicker)
+    fun pickRecordedCall(recorded: RecordedCall) = setSheet(ActiveSheet.Call(existing = null, recorded = recorded))
     fun openAddGiftIdea() = setSheet(ActiveSheet.GiftIdeaItem(null))
     fun openEditGiftIdea(item: ContactGiftIdea) = setSheet(ActiveSheet.GiftIdeaItem(item))
 
@@ -319,12 +334,20 @@ class ContactDetailViewModel @Inject constructor(
         submit { repository.deleteAddress(contactId, item.id) }
     }
 
-    fun saveCall(calledAt: LocalDate, note: String?) {
+    fun saveCall(calledAt: LocalDate, time: LocalTime, note: String?) {
         val sheet = _state.value.activeSheet as? ActiveSheet.Call ?: return
-        val isoDateTime = calledAt.format(DateTimeFormatter.ISO_LOCAL_DATE) + " 00:00:00"
+        val recorded = sheet.recorded
+        // The picker is in local time; the API stores called_at in UTC.
+        val isoDateTime = DateTimes.localToApiUtc(LocalDateTime.of(calledAt, time))
         submit {
-            if (sheet.existing == null) repository.addCall(contactId, isoDateTime, note)
-            else repository.updateCall(contactId, sheet.existing.id, isoDateTime, note)
+            val result = if (sheet.existing != null) {
+                repository.updateCall(contactId, sheet.existing.id, isoDateTime, note)
+            } else {
+                repository.addCall(contactId, isoDateTime, note)
+            }
+            // Once logged, drop the recorded event from the picker.
+            if (result.isSuccess && recorded != null) callEventStore.markLogged(recorded.id)
+            result
         }
     }
     fun deleteCall() = (_state.value.activeSheet as? ActiveSheet.Call)?.existing?.let { item ->

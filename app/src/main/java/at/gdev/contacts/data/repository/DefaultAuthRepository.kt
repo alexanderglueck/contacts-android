@@ -2,6 +2,7 @@ package at.gdev.contacts.data.repository
 
 import android.os.Build
 import at.gdev.contacts.data.auth.TokenStore
+import at.gdev.contacts.data.local.CallEventStore
 import at.gdev.contacts.data.local.ContactsDao
 import at.gdev.contacts.data.network.AuthApi
 import at.gdev.contacts.data.network.dto.AuthResponse
@@ -29,6 +30,7 @@ class DefaultAuthRepository @Inject constructor(
     private val json: Json,
     private val syncScheduler: ContactSyncScheduler,
     private val contactsDao: ContactsDao,
+    private val callEventStore: CallEventStore,
     private val deviceRepository: DeviceRepository,
 ) : AuthRepository {
 
@@ -104,6 +106,7 @@ class DefaultAuthRepository @Inject constructor(
         tokenStore.clear()
         syncScheduler.cancelAll()
         contactsDao.clearAll()
+        callEventStore.clear()
     }
 
     private fun AuthResponse.toSession(): AuthSession =

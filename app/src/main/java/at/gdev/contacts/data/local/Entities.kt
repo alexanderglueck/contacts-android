@@ -40,3 +40,28 @@ data class ContactNumberEntity(
     /** All non-digit chars stripped, used for suffix-matching incoming numbers. */
     val digits: String,
 )
+
+/**
+ * A locally-observed incoming call from a known contact, recorded by the call
+ * screening service. Purely device-local (never synced) and pruned after a
+ * month — it exists only to pre-fill the call-log "called at" timestamp so the
+ * user need only add a note. No foreign key to [ContactEntity]: the matched
+ * contact may have come from the API rather than the cached summaries.
+ */
+@Entity(
+    tableName = "call_events",
+    indices = [
+        Index("contact_ulid"),
+        Index("occurred_at"),
+    ],
+)
+data class CallEventEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "contact_ulid") val contactUlid: String,
+    @ColumnInfo(name = "raw_number") val rawNumber: String,
+    @ColumnInfo(name = "matched_label") val matchedLabel: String?,
+    /** When the call came in, epoch millis. */
+    @ColumnInfo(name = "occurred_at") val occurredAt: Long,
+    /** Set once the user has turned this event into a saved call-log entry. */
+    val logged: Boolean = false,
+)

@@ -47,10 +47,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import android.content.Context
 import at.gdev.contacts.domain.model.CalendarEvent
+import at.gdev.contacts.ui.util.formatDate
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
@@ -60,7 +63,6 @@ import com.kizitonwose.calendar.core.firstDayOfWeekFromLocale
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -346,9 +348,10 @@ private fun SelectedDayList(
     onRetry: () -> Unit,
     onContactClick: (String) -> Unit,
 ) {
+    val context = LocalContext.current
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Text(
-            text = whenText(selected, today),
+            text = whenText(context, selected, today),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold,
@@ -405,6 +408,7 @@ private fun BucketHeader(label: String) {
 
 @Composable
 private fun EventRow(event: CalendarEvent, today: LocalDate, onClick: () -> Unit) {
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -421,7 +425,7 @@ private fun EventRow(event: CalendarEvent, today: LocalDate, onClick: () -> Unit
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                whenText(event.date, today),
+                whenText(context, event.date, today),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
             )
@@ -456,10 +460,10 @@ private fun bucketFor(date: LocalDate, today: LocalDate): String {
     }
 }
 
-private fun whenText(date: LocalDate, today: LocalDate): String {
+private fun whenText(context: Context, date: LocalDate, today: LocalDate): String {
     val days = ChronoUnit.DAYS.between(today, date)
     val weekday = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
-    val pretty = date.format(DATE_FORMAT)
+    val pretty = context.formatDate(date)
     return when {
         days == 0L -> "Today · $pretty"
         days == 1L -> "Tomorrow · $pretty"
@@ -491,5 +495,3 @@ private fun ordinal(n: Int): String {
     }
     return "$n$suffix"
 }
-
-private val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")

@@ -1,14 +1,19 @@
 package at.gdev.contacts.ui.contacts.edit
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,8 +24,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import at.gdev.contacts.data.util.DateTimes
 import at.gdev.contacts.domain.model.ContactAddress
 import at.gdev.contacts.domain.model.ContactCall
 import at.gdev.contacts.domain.model.ContactComment
@@ -31,7 +39,10 @@ import at.gdev.contacts.domain.model.ContactNote
 import at.gdev.contacts.domain.model.ContactNumber
 import at.gdev.contacts.domain.model.ContactUrl
 import at.gdev.contacts.domain.model.NamedRef
+import at.gdev.contacts.domain.model.RecordedCall
+import at.gdev.contacts.ui.util.formatDateTime
 import java.time.LocalDate
+import java.time.LocalTime
 
 @Composable
 fun NumberSheet(
@@ -336,31 +347,41 @@ fun AddressSheet(
 @Composable
 fun CallSheet(
     existing: ContactCall?,
+    recorded: RecordedCall? = null,
     submitting: Boolean,
     error: String?,
     onDismiss: () -> Unit,
-    onSave: (calledAt: LocalDate, note: String?) -> Unit,
+    onSave: (calledAt: LocalDate, time: LocalTime, note: String?) -> Unit,
     onDelete: () -> Unit,
 ) {
-    // We model called_at as a date-only picker for simplicity; the server accepts ISO datetimes.
-    val initialDate = existing?.calledAt?.let {
-        runCatching { LocalDate.parse(it.substringBefore('T').substringBefore(' ').take(10)) }.getOrNull()
-    }
-    var date by remember(existing) { mutableStateOf<LocalDate?>(initialDate ?: LocalDate.now()) }
-    var note by rememberSaveable(existing) { mutableStateOf(existing?.note.orEmpty()) }
+    // called_at is a UTC datetime; we edit it as a date + time pair in local time.
+    // A call picked from recent history (already local) or an existing entry
+    // (UTC → local) pre-fills both fields.
+    val existingLocal = DateTimes.instantToLocal(existing?.calledAt)
+    val initialDate = recorded?.occurredAt?.toLocalDate() ?: existingLocal?.toLocalDate()
+    val initialTime = recorded?.occurredAt?.toLocalTime() ?: existingLocal?.toLocalTime()
+    var date by remember(existing, recorded) { mutableStateOf<LocalDate?>(initialDate ?: LocalDate.now()) }
+    var time by remember(existing, recorded) { mutableStateOf(initialTime ?: LocalTime.now().withSecond(0).withNano(0)) }
+    var note by rememberSaveable(existing, recorded) { mutableStateOf(existing?.note.orEmpty()) }
 
     EditSheetScaffold(
-        title = if (existing == null) "Log a call" else "Edit call",
+        title = when {
+            recorded != null -> "Log call"
+            existing == null -> "Log a call"
+            else -> "Edit call"
+        },
         isNew = existing == null,
         submitting = submitting,
         error = error,
         canSave = date != null,
         onDismiss = onDismiss,
-        onSave = { date?.let { onSave(it, note.trim().takeIf { s -> s.isNotBlank() }) } },
+        onSave = { date?.let { onSave(it, time, note.trim().takeIf { s -> s.isNotBlank() }) } },
         onDelete = onDelete,
         deleteSubject = "call entry",
     ) {
-        DateField(label = "Called at", value = date, onChange = { date = it }, required = true)
+        DateField(label = "Date", value = date, onChange = { date = it }, required = true)
+        Spacer(Modifier.height(12.dp))
+        TimeField(label = "Time", value = time, onChange = { time = it })
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = note,
@@ -370,6 +391,56 @@ fun CallSheet(
             maxLines = 6,
             modifier = Modifier.fillMaxWidth(),
         )
+    }
+}
+
+/**
+ * Lets the user pick one of the incoming calls observed by the screening service
+ * and turn it into a call-log entry. Selecting a call hands off to [CallSheet]
+ * (via [onPick]) with the date/time pre-filled.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CallPickerSheet(
+    recordedCalls: List<RecordedCall>,
+    onPick: (RecordedCall) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp),
+        ) {
+            Text("Recent calls", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Pick a call to log — the date and time are filled in for you.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+            Spacer(Modifier.height(12.dp))
+            recordedCalls.forEach { call ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onPick(call) }
+                        .padding(vertical = 12.dp),
+                ) {
+                    Text(context.formatDateTime(call.occurredAt), style = MaterialTheme.typography.bodyLarge)
+                    if (!call.matchedLabel.isNullOrBlank()) {
+                        Text(
+                            call.matchedLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                    }
+                }
+                HorizontalDivider()
+            }
+        }
     }
 }
 

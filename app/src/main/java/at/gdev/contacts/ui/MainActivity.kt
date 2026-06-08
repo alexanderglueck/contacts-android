@@ -9,7 +9,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -24,8 +24,11 @@ class MainActivity : ComponentActivity() {
 
     private val sessionViewModel: SessionViewModel by viewModels()
 
-    // Set when launched from a birthday notification; consumed by the nav host.
-    private var openCalendar by mutableStateOf(false)
+    // Bumped each time we're launched/re-launched from a birthday notification.
+    // A monotonic counter (rather than a boolean) means every tap is a distinct
+    // event, so a second notification still navigates even while a prior one is
+    // mid-handling. Consumed by the nav host.
+    private var calendarRequest by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
@@ -34,14 +37,15 @@ class MainActivity : ComponentActivity() {
         }
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        openCalendar = intent?.getBooleanExtra(EXTRA_OPEN_CALENDAR, false) == true
+        if (intent?.getBooleanExtra(EXTRA_OPEN_CALENDAR, false) == true) {
+            calendarRequest++
+        }
         setContent {
             ContactsTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     ContactsNavHost(
                         sessionViewModel = sessionViewModel,
-                        openCalendar = openCalendar,
-                        onCalendarOpened = { openCalendar = false },
+                        calendarRequest = calendarRequest,
                     )
                 }
             }
@@ -52,7 +56,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.getBooleanExtra(EXTRA_OPEN_CALENDAR, false)) {
-            openCalendar = true
+            calendarRequest++
         }
     }
 

@@ -3,6 +3,7 @@ package at.gdev.contacts.di
 import android.content.Context
 import androidx.room.Room
 import at.gdev.contacts.data.local.AppDatabase
+import at.gdev.contacts.data.local.CallEventsDao
 import at.gdev.contacts.data.local.ContactsDao
 import dagger.Module
 import dagger.Provides
@@ -24,4 +25,7 @@ object DatabaseModule {
 
     @Provides
     fun provideContactsDao(db: AppDatabase): ContactsDao = db.contactsDao()
+
+    @Provides
+    fun provideCallEventsDao(db: AppDatabase): CallEventsDao = db.callEventsDao()
 }

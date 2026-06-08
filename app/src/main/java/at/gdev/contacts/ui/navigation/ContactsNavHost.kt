@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -26,8 +27,7 @@ import at.gdev.contacts.ui.settings.SettingsScreen
 @Composable
 fun ContactsNavHost(
     sessionViewModel: SessionViewModel = hiltViewModel(),
-    openCalendar: Boolean = false,
-    onCalendarOpened: () -> Unit = {},
+    calendarRequest: Int = 0,
 ) {
     val sessionState by sessionViewModel.state.collectAsState()
 
@@ -49,13 +49,16 @@ fun ContactsNavHost(
     val navController = rememberNavController()
 
     // Deep link from a birthday notification: jump to the calendar (which defaults
-    // to today) once the session has resolved to a logged-in user.
-    LaunchedEffect(openCalendar, sessionState) {
-        if (openCalendar && sessionState is SessionState.LoggedIn) {
+    // to today) once the session has resolved to a logged-in user. `calendarRequest`
+    // is a counter bumped on every notification tap, so each tap navigates exactly
+    // once — even when several birthday notifications are tapped in succession.
+    var handledCalendarRequest by remember { mutableIntStateOf(0) }
+    LaunchedEffect(calendarRequest, sessionState) {
+        if (calendarRequest > handledCalendarRequest && sessionState is SessionState.LoggedIn) {
+            handledCalendarRequest = calendarRequest
             navController.navigate(Routes.CALENDAR) {
                 launchSingleTop = true
             }
-            onCalendarOpened()
         }
     }
 
