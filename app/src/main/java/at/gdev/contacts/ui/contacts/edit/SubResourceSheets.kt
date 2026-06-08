@@ -1,5 +1,12 @@
 package at.gdev.contacts.ui.contacts.edit
 
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.ContactsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -18,9 +26,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,6 +68,24 @@ import at.gdev.contacts.ui.util.formatDateTime
 import java.time.LocalDate
 import java.time.LocalTime
 
+/** Reads NUMBER + a human label from a phone-data URI returned by the contact picker. */
+private fun readPickedPhoneNumber(context: Context, uri: Uri): Pair<String, String>? {
+    val projection = arrayOf(
+        ContactsContract.CommonDataKinds.Phone.NUMBER,
+        ContactsContract.CommonDataKinds.Phone.TYPE,
+        ContactsContract.CommonDataKinds.Phone.LABEL,
+    )
+    return context.contentResolver.query(uri, projection, null, null, null)?.use { c ->
+        if (!c.moveToFirst()) return null
+        val number = c.getString(0)?.takeIf { it.isNotBlank() } ?: return null
+        val type = c.getInt(1)
+        val customLabel = c.getString(2)
+        val label = ContactsContract.CommonDataKinds.Phone
+            .getTypeLabel(context.resources, type, customLabel).toString()
+        number to label
+    }
+}
+
 @Composable
 fun NumberSheet(
     existing: ContactNumber?,
@@ -68,6 +98,22 @@ fun NumberSheet(
     var name by rememberSaveable(existing) { mutableStateOf(existing?.name.orEmpty()) }
     var number by rememberSaveable(existing) { mutableStateOf(existing?.number.orEmpty()) }
 
+    val context = LocalContext.current
+    // System contact picker: grants temporary scoped access to the picked row, so
+    // no READ_CONTACTS permission is needed. Fills the fields for review before save.
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val uri = result.data?.data
+            val picked = uri?.let { readPickedPhoneNumber(context, it) }
+            if (picked != null) {
+                number = picked.first
+                if (name.isBlank()) name = picked.second
+            }
+        }
+    }
+
     EditSheetScaffold(
         title = if (existing == null) "Add phone number" else "Edit phone number",
         isNew = existing == null,
@@ -79,6 +125,21 @@ fun NumberSheet(
         onDelete = onDelete,
         deleteSubject = "phone number",
     ) {
+        OutlinedButton(
+            onClick = {
+                importLauncher.launch(
+                    Intent(Intent.ACTION_PICK).apply {
+                        type = ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE
+                    },
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(Icons.Filled.Contacts, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Pick from phone contacts")
+        }
+        Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },

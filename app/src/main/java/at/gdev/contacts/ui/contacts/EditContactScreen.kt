@@ -211,7 +211,8 @@ fun EditContactScreen(
             SectionHeader("Demographics")
             NamedRefDropdown(
                 label = "Gender",
-                options = state.genders,
+                // Display names with a leading capital ("Male"); the posted value (id) is unchanged.
+                options = state.genders.map { it.copy(name = it.name.replaceFirstChar(Char::uppercaseChar)) },
                 selectedId = state.genderId,
                 onSelect = { viewModel.setGender(it?.id) },
                 nullable = true,
@@ -223,11 +224,18 @@ fun EditContactScreen(
                 onSelect = { viewModel.setNationality(it?.id) },
                 nullable = true,
             )
-            DateField(
-                label = "Date of birth",
-                value = state.dateOfBirth,
-                onChange = viewModel::setDateOfBirth,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                DateField(
+                    label = "Date of birth",
+                    value = state.dateOfBirth,
+                    onChange = viewModel::setDateOfBirth,
+                )
+                Text(
+                    "Tip: use the year 1900 if you don't know the exact year of birth.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
             OutlinedTextField(
                 value = state.firstMet,
                 onValueChange = viewModel::setFirstMet,
