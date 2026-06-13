@@ -23,6 +23,7 @@ import at.gdev.contacts.ui.contacts.ContactDetailScreen
 import at.gdev.contacts.ui.contacts.ContactsListScreen
 import at.gdev.contacts.ui.contacts.EditContactScreen
 import at.gdev.contacts.ui.settings.SettingsScreen
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun ContactsNavHost(
@@ -56,6 +57,12 @@ fun ContactsNavHost(
     LaunchedEffect(calendarRequest, sessionState) {
         if (calendarRequest > handledCalendarRequest && sessionState is SessionState.LoggedIn) {
             handledCalendarRequest = calendarRequest
+            // On a cold start this effect first runs on the same frame the NavHost is
+            // composed, so the graph may not have a current entry yet — navigating then
+            // is silently dropped and we'd stay on the start destination. Wait for the
+            // back stack to come up first (returns immediately once it's ready), then
+            // push the calendar on top of the contacts list so Back returns to it.
+            navController.currentBackStackEntryFlow.first()
             navController.navigate(Routes.CALENDAR) {
                 launchSingleTop = true
             }
