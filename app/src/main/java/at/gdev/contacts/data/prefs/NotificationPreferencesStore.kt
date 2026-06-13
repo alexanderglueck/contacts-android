@@ -15,7 +15,7 @@ private val Context.notificationPrefs by preferencesDataStore(name = "notificati
 /** Tracks whether we've already shown the one-time notification-permission prompt. */
 @Singleton
 class NotificationPreferencesStore @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     val permissionPromptShown: Flow<Boolean> =
         context.notificationPrefs.data.map { it[Keys.PERMISSION_PROMPT_SHOWN] ?: false }

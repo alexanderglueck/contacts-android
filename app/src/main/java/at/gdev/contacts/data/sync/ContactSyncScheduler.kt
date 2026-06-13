@@ -15,7 +15,7 @@ import javax.inject.Singleton
 
 @Singleton
 class ContactSyncScheduler @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
 
     private val workManager get() = WorkManager.getInstance(context)

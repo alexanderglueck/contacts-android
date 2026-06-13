@@ -15,7 +15,7 @@ private val Context.contactListPrefs by preferencesDataStore(name = "contact_lis
 
 @Singleton
 class ContactListPreferencesStore @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     val sort: Flow<ContactSort> = context.contactListPrefs.data.map { prefs ->
         when (prefs[Keys.SORT]) {

@@ -19,7 +19,7 @@ private val Context.dataStore by preferencesDataStore(name = "auth")
 
 @Singleton
 class TokenStore @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     val token: Flow<String?> = context.dataStore.data.map { it[Keys.TOKEN] }
 

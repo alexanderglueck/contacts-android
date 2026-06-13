@@ -87,7 +87,7 @@ class ContactsDirectoryProvider : ContentProvider() {
     private fun directoriesCursor(projection: Array<String>?): Cursor {
         val cols = projection ?: DEFAULT_DIRECTORY_COLS
         val cursor = MatrixCursor(cols)
-        val row = cols.map { col ->
+        val row: Array<Any?> = cols.map { col ->
             when (col) {
                 Directory.ACCOUNT_NAME -> ACCOUNT_NAME
                 Directory.ACCOUNT_TYPE -> ACCOUNT_TYPE
@@ -118,7 +118,7 @@ class ContactsDirectoryProvider : ContentProvider() {
         matches.forEachIndexed { index, match ->
             val rowId = stableId(match.ulid, index)
             val contactId = stableId(match.contactUlid, 0)
-            val row = cols.map { col ->
+            val row: Array<Any?> = cols.map { col ->
                 when (col) {
                     BaseColumns._ID -> rowId
                     Phone.CONTACT_ID -> contactId

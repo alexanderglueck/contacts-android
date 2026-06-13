@@ -9,7 +9,7 @@ import javax.inject.Singleton
 
 @Singleton
 class CallerIdRoleHelper @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     fun isRoleHeld(): Boolean = roleManager()?.isRoleHeld(RoleManager.ROLE_CALL_SCREENING) == true
 
