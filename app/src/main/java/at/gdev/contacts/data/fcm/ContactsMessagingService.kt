@@ -1,5 +1,6 @@
 package at.gdev.contacts.data.fcm
 
+import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
@@ -58,33 +59,57 @@ class ContactsMessagingService : FirebaseMessagingService() {
     }
 
     private fun showNotification(title: String, body: String) {
+        val manager = getSystemService<NotificationManager>() ?: return
+        val channelId = getString(R.string.default_notification_channel_id)
+
+        val id = Random.nextInt()
+        manager.notify(id, buildReminder(channelId, title, body, id))
+        // (Re)post the group summary. When two or more reminders are pending the system
+        // collapses them into a group, and the OS-generated summary wouldn't carry our
+        // tap-intent — so tapping the collapsed stack would land on the default screen
+        // instead of the calendar. Owning the summary keeps that tap deep-linking too.
+        manager.notify(SUMMARY_ID, buildSummary(channelId))
+    }
+
+    private fun buildReminder(channelId: String, title: String, body: String, id: Int): Notification =
+        baseBuilder(channelId, id)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .build()
+
+    private fun buildSummary(channelId: String): Notification =
+        baseBuilder(channelId, SUMMARY_ID)
+            .setGroupSummary(true)
+            .build()
+
+    /** Shared notification setup; every reminder and the summary open the calendar on tap. */
+    private fun baseBuilder(channelId: String, requestCode: Int): NotificationCompat.Builder {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(MainActivity.EXTRA_OPEN_CALENDAR, true)
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
-            Random.nextInt(),
+            requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-
-        val notification =
-            NotificationCompat.Builder(this, getString(R.string.default_notification_channel_id))
-                .setSmallIcon(R.drawable.ic_notification)
-                .setColor(ContextCompat.getColor(this, R.color.notification_accent))
-                .setContentTitle(title)
-                .setContentText(body)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent)
-                .build()
-
-        val manager = getSystemService<NotificationManager>() ?: return
-        manager.notify(Random.nextInt(), notification)
+        return NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(ContextCompat.getColor(this, R.color.notification_accent))
+            .setAutoCancel(true)
+            .setGroup(GROUP_KEY)
+            .setContentIntent(pendingIntent)
     }
 
     private companion object {
         const val TAG = "ContactsFcm"
+
+        /** Groups birthday reminders so multiple pending ones collapse into one stack. */
+        const val GROUP_KEY = "at.gdev.contacts.birthday_reminders"
+
+        /** Stable id for the group-summary notification (children use random ids). */
+        const val SUMMARY_ID = 1
     }
 }
