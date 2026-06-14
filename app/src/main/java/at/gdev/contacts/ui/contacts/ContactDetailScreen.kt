@@ -28,10 +28,13 @@ import at.gdev.contacts.ui.common.captureUri
 import at.gdev.contacts.ui.common.newCaptureFile
 import coil.compose.AsyncImage
 import java.io.File
+import java.time.LocalDate
+import java.time.Period
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -579,11 +582,7 @@ private fun About(contact: Contact) {
         MarkdownText(it)
         Spacer(Modifier.height(8.dp))
     }
-    contact.dateOfBirth?.let {
-        // Year 1900 is the sentinel for "birth year unknown" — show day/month only.
-        val formatted = if (it.year == UNKNOWN_BIRTH_YEAR) context.formatMonthDay(it) else context.formatDate(it)
-        LabeledLine("Date of birth", formatted)
-    }
+    contact.dateOfBirth?.let { BirthdayLine(it) }
     contact.firstMet?.takeIf { it.isNotBlank() }?.let {
         Spacer(Modifier.height(4.dp))
         Text("First met", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
@@ -684,6 +683,52 @@ private fun LabeledLine(
             }
         }
         trailing?.invoke()
+    }
+}
+
+@Composable
+private fun BirthdayLine(dateOfBirth: LocalDate) {
+    val context = LocalContext.current
+    // Year 1900 is the sentinel for "birth year unknown" — show day/month only and skip the age.
+    val yearKnown = dateOfBirth.year != UNKNOWN_BIRTH_YEAR
+    val dateText = if (yearKnown) context.formatDate(dateOfBirth) else context.formatMonthDay(dateOfBirth)
+    val today = LocalDate.now()
+    val isBirthday = dateOfBirth.monthValue == today.monthValue && dateOfBirth.dayOfMonth == today.dayOfMonth
+    val age = if (yearKnown) Period.between(dateOfBirth, today).years else null
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(dateText, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Date of birth",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        }
+        if (isBirthday) {
+            Icon(
+                Icons.Filled.Cake,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                age?.let { "Turns $it today" } ?: "Birthday today",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+            )
+        } else if (age != null) {
+            Text(
+                "$age years old",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
