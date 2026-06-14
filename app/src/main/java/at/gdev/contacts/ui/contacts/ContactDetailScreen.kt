@@ -21,8 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import at.gdev.contacts.ui.common.PhotoSource
 import at.gdev.contacts.ui.common.captureUri
 import at.gdev.contacts.ui.common.newCaptureFile
@@ -183,8 +182,7 @@ fun ContactDetailScreen(
                 viewModel = viewModel,
                 modifier = Modifier
                     .padding(padding)
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
+                    .fillMaxSize(),
             )
         }
     }
@@ -423,128 +421,154 @@ private fun ContactDetailContent(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    Column(modifier = modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-        Header(contact, onAvatarClick = viewModel::openImageViewer)
+    // LazyColumn so only on-screen sections are composed/measured — a plain
+    // verticalScroll Column keeps every section (and its Markdown blocks) alive
+    // at once, which made long contacts scroll laggily.
+    LazyColumn(
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+    ) {
+        item { Header(contact, onAvatarClick = viewModel::openImageViewer) }
 
         if (hasAbout(contact)) {
-            Section(title = "About", onAdd = null) { About(contact) }
+            item { Section(title = "About", onAdd = null) { About(contact) } }
         }
 
         if (hasIdentifiers(contact)) {
-            Section(title = "Identifiers", onAdd = null) { Identifiers(contact) }
+            item { Section(title = "Identifiers", onAdd = null) { Identifiers(contact) } }
         }
 
-        Section(title = "Phone numbers", onAdd = viewModel::openAddNumber) {
-            EmptyOr(contact.numbers) {
-                contact.numbers.forEach { item ->
-                    LabeledLine(
-                        label = item.name,
-                        value = item.number,
-                        onClick = { viewModel.openEditNumber(item) },
-                        trailing = { ActionIcon(Icons.Filled.Call, "Call ${item.number}") { dial(context, item.number) } },
-                    )
+        item {
+            Section(title = "Phone numbers", onAdd = viewModel::openAddNumber) {
+                EmptyOr(contact.numbers) {
+                    contact.numbers.forEach { item ->
+                        LabeledLine(
+                            label = item.name,
+                            value = item.number,
+                            onClick = { viewModel.openEditNumber(item) },
+                            trailing = { ActionIcon(Icons.Filled.Call, "Call ${item.number}") { dial(context, item.number) } },
+                        )
+                    }
                 }
             }
         }
 
-        Section(title = "Email addresses", onAdd = viewModel::openAddEmail) {
-            EmptyOr(contact.emails) {
-                contact.emails.forEach { item ->
-                    LabeledLine(
-                        label = item.name,
-                        value = item.email,
-                        onClick = { viewModel.openEditEmail(item) },
-                        trailing = { ActionIcon(Icons.Filled.Email, "Email ${item.email}") { sendMail(context, item.email) } },
-                    )
+        item {
+            Section(title = "Email addresses", onAdd = viewModel::openAddEmail) {
+                EmptyOr(contact.emails) {
+                    contact.emails.forEach { item ->
+                        LabeledLine(
+                            label = item.name,
+                            value = item.email,
+                            onClick = { viewModel.openEditEmail(item) },
+                            trailing = { ActionIcon(Icons.Filled.Email, "Email ${item.email}") { sendMail(context, item.email) } },
+                        )
+                    }
                 }
             }
         }
 
-        Section(title = "Links", onAdd = viewModel::openAddUrl) {
-            EmptyOr(contact.urls) {
-                contact.urls.forEach { item ->
-                    LabeledLine(
-                        label = item.name,
-                        value = item.url,
-                        onClick = { viewModel.openEditUrl(item) },
-                        trailing = { ActionIcon(Icons.AutoMirrored.Filled.OpenInNew, "Open ${item.url}") { openUrl(context, item.url) } },
-                    )
+        item {
+            Section(title = "Links", onAdd = viewModel::openAddUrl) {
+                EmptyOr(contact.urls) {
+                    contact.urls.forEach { item ->
+                        LabeledLine(
+                            label = item.name,
+                            value = item.url,
+                            onClick = { viewModel.openEditUrl(item) },
+                            trailing = { ActionIcon(Icons.AutoMirrored.Filled.OpenInNew, "Open ${item.url}") { openUrl(context, item.url) } },
+                        )
+                    }
                 }
             }
         }
 
-        Section(title = "Addresses", onAdd = viewModel::openAddAddress) {
-            EmptyOr(contact.addresses) {
-                contact.addresses.forEach { item ->
-                    AddressRow(
-                        item = item,
-                        onClick = { viewModel.openEditAddress(item) },
-                        onOpenMap = { openMap(context, item) },
-                    )
+        item {
+            Section(title = "Addresses", onAdd = viewModel::openAddAddress) {
+                EmptyOr(contact.addresses) {
+                    contact.addresses.forEach { item ->
+                        AddressRow(
+                            item = item,
+                            onClick = { viewModel.openEditAddress(item) },
+                            onOpenMap = { openMap(context, item) },
+                        )
+                    }
                 }
             }
         }
 
-        Section(title = "Important dates", onAdd = viewModel::openAddDate) {
-            EmptyOr(contact.dates) {
-                contact.dates.forEach { item ->
-                    DateRow(item) { viewModel.openEditDate(item) }
+        item {
+            Section(title = "Important dates", onAdd = viewModel::openAddDate) {
+                EmptyOr(contact.dates) {
+                    contact.dates.forEach { item ->
+                        DateRow(item) { viewModel.openEditDate(item) }
+                    }
                 }
             }
         }
 
-        Section(title = "Notes", onAdd = viewModel::openAddNote) {
-            EmptyOr(contact.notes) {
-                contact.notes.forEach { item ->
-                    NoteRow(item) { viewModel.openEditNote(item) }
+        item {
+            Section(title = "Notes", onAdd = viewModel::openAddNote) {
+                EmptyOr(contact.notes) {
+                    contact.notes.forEach { item ->
+                        NoteRow(item) { viewModel.openEditNote(item) }
+                    }
                 }
             }
         }
 
-        Section(title = "Call history", onAdd = viewModel::openAddCall) {
-            if (recordedCalls.isNotEmpty()) {
-                TextButton(
-                    onClick = viewModel::openCallPicker,
-                    contentPadding = PaddingValues(horizontal = 0.dp),
-                ) {
-                    Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("From recent calls (${recordedCalls.size})")
+        item {
+            Section(title = "Call history", onAdd = viewModel::openAddCall) {
+                if (recordedCalls.isNotEmpty()) {
+                    TextButton(
+                        onClick = viewModel::openCallPicker,
+                        contentPadding = PaddingValues(horizontal = 0.dp),
+                    ) {
+                        Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("From recent calls (${recordedCalls.size})")
+                    }
                 }
-            }
-            EmptyOr(contact.calls) {
-                contact.calls.forEach { item ->
-                    CallRow(item) { viewModel.openEditCall(item) }
-                }
-            }
-        }
-
-        Section(title = "Relationships", onAdd = viewModel::openAddRelation) {
-            EmptyOr(contact.relations) {
-                contact.relations.forEach { item ->
-                    RelationRow(
-                        item = item,
-                        onOpen = { onContactClick(item.relatedContactId) },
-                        onEdit = { viewModel.openEditRelation(item) },
-                    )
+                EmptyOr(contact.calls) {
+                    contact.calls.forEach { item ->
+                        CallRow(item) { viewModel.openEditCall(item) }
+                    }
                 }
             }
         }
 
-        Section(title = "Gift ideas", onAdd = viewModel::openAddGiftIdea) {
-            EmptyOr(contact.giftIdeas) {
-                contact.giftIdeas.forEach { item ->
-                    GiftRow(item) { viewModel.openEditGiftIdea(item) }
+        item {
+            Section(title = "Relationships", onAdd = viewModel::openAddRelation) {
+                EmptyOr(contact.relations) {
+                    contact.relations.forEach { item ->
+                        RelationRow(
+                            item = item,
+                            onOpen = { onContactClick(item.relatedContactId) },
+                            onEdit = { viewModel.openEditRelation(item) },
+                        )
+                    }
                 }
             }
         }
 
-        Section(title = "Comments", onAdd = viewModel::openAddComment) {
-            CommentsBlock(
-                comments = comments,
-                onEdit = viewModel::openEditComment,
-                onReply = viewModel::openReplyComment,
-            )
+        item {
+            Section(title = "Gift ideas", onAdd = viewModel::openAddGiftIdea) {
+                EmptyOr(contact.giftIdeas) {
+                    contact.giftIdeas.forEach { item ->
+                        GiftRow(item) { viewModel.openEditGiftIdea(item) }
+                    }
+                }
+            }
+        }
+
+        item {
+            Section(title = "Comments", onAdd = viewModel::openAddComment) {
+                CommentsBlock(
+                    comments = comments,
+                    onEdit = viewModel::openEditComment,
+                    onReply = viewModel::openReplyComment,
+                )
+            }
         }
     }
 }
@@ -970,9 +994,12 @@ private fun CommentsBlock(
         return
     }
     // Stable thread order: top-level chronologically, then each thread's replies chronologically.
-    val sorted = comments.sortedBy { it.createdAt }
-    val topLevel = sorted.filter { it.parentId == null }
-    val repliesByParent = sorted.filter { it.parentId != null }.groupBy { it.parentId!! }
+    // Memoized so the sort/group only reruns when the comment list actually changes.
+    val (topLevel, repliesByParent) = remember(comments) {
+        val sorted = comments.sortedBy { it.createdAt }
+        sorted.filter { it.parentId == null } to
+            sorted.filter { it.parentId != null }.groupBy { it.parentId!! }
+    }
 
     topLevel.forEach { parent ->
         CommentRow(
