@@ -23,13 +23,13 @@ Android client for a contacts-management backend. Built with Jetpack Compose, Hi
 The base URL lives in [`app/src/main/java/at/gdev/contacts/data/network/ApiConfig.kt`](app/src/main/java/at/gdev/contacts/data/network/ApiConfig.kt):
 
 ```kotlin
-const val ORIGIN = "http://10.0.2.2:8080"
+const val ORIGIN = "https://contacts.alexanderglueck.at"
 const val BASE_URL = "$ORIGIN/api/v1/"
 ```
 
-- `10.0.2.2` is the Android emulator's alias for the host machine's `localhost`. Leave it as-is when the backend is running on the same machine as the emulator.
-- For a **physical device**, change `ORIGIN` to your host's LAN IP (e.g. `http://192.168.1.42:8080`) and make sure the backend is listening on that interface.
-- Cleartext HTTP is allowed only for the loopback domains declared in `app/src/main/res/xml/network_security_config.xml`. If you point at a non-loopback host over plain HTTP, add it there too — or, better, use HTTPS.
+- The shipped default points at the maintainer's hosted instance. Point `ORIGIN` at your own backend to run the app against your own data.
+- For **local development**, the Android emulator reaches the host machine's `localhost` via `http://10.0.2.2:8080`; on a **physical device** use the host's LAN IP (e.g. `http://192.168.1.42:8080`) and make sure the backend listens on that interface.
+- Cleartext HTTP is allowed only for the loopback domains declared in `app/src/main/res/xml/network_security_config.xml` (`localhost`, `10.0.2.2`). If you point at a non-loopback host over plain HTTP, add it there too — or, better, use HTTPS.
 
 The API is expected to conform to the OpenAPI spec served by the backend at `/docs/api.json` (Laravel + Sanctum-style: Bearer tokens, ULID/UUID identifiers, snake_case JSON, `422` validation envelopes).
 
@@ -78,4 +78,12 @@ The caller-ID feature requires the user to grant the app the **Call Screening** 
 | Background work      | WorkManager (Hilt-injected workers)                     |
 | Images               | Coil                                                    |
 | Calendar UI          | `kizitonwose/Calendar`                                  |
-| Markdown rendering   | `jeziellago/compose-markdown` (M3)                      |
+| Markdown rendering   | `mikepenz/multiplatform-markdown-renderer` (M3)         |
+
+## License
+
+Copyright © 2026 Alexander Glück.
+
+Licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0) — see [LICENSE](LICENSE) for the full text. In short: you are free to use, study, modify and self-host this software, but if you distribute it or run a modified version as a network service, you must make the corresponding source available under the same license.
+
+A separate **commercial license**, without the AGPL copyleft obligations, is available from the copyright holder. For commercial-licensing terms, contact github@alexanderglueck.at.
