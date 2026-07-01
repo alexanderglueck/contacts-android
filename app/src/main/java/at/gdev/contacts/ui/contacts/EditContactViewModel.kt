@@ -80,6 +80,11 @@ class EditContactViewModel @Inject constructor(
     private val _state = MutableStateFlow(EditContactUiState(isNew = contactId == null))
     val state: StateFlow<EditContactUiState> = _state.asStateFlow()
 
+    // The contact as loaded, kept so a successful save can be published to open
+    // screens (the detail view) as a full Contact without a refetch — the edit form
+    // only tracks the base fields, so sub-resources/image are carried over from here.
+    private var original: Contact? = null
+
     init {
         load()
     }
@@ -87,6 +92,7 @@ class EditContactViewModel @Inject constructor(
     private fun load() {
         viewModelScope.launch {
             val contact = contactId?.let { contactsRepository.getContact(it) }
+            original = contact
             val genders = runCatching { referenceRepository.genders() }.getOrDefault(emptyList())
             val countries = runCatching { referenceRepository.countries() }.getOrDefault(emptyList())
             val groups = runCatching { referenceRepository.contactGroups() }.getOrDefault(emptyList())
@@ -128,6 +134,38 @@ class EditContactViewModel @Inject constructor(
             active = contact.active,
         )
     }
+
+    /**
+     * Rebuilds a full [Contact] from the edited base fields, carrying over the
+     * sub-resources, image and id from the loaded original. Scalars use the same
+     * trim/blank-to-null normalization as the outgoing patch so the local copy matches
+     * what the server stored; gender/nationality/groups are resolved from the loaded
+     * reference lists. `fullName` is left as-is (server-recomputed) — it's only a
+     * display-name fallback that never triggers while first/last names are present.
+     */
+    private fun Contact.applyEdited(s: EditContactUiState): Contact = copy(
+        salutation = s.salutation.trim().ifBlank { null },
+        firstName = s.firstName.trim(),
+        lastName = s.lastName.trim(),
+        titleBefore = s.titleBefore.trim().ifBlank { null },
+        titleAfter = s.titleAfter.trim().ifBlank { null },
+        nickname = s.nickname.trim().ifBlank { null },
+        company = s.company.trim().ifBlank { null },
+        job = s.job.trim().ifBlank { null },
+        department = s.department.trim().ifBlank { null },
+        customId = s.customId.trim().ifBlank { null },
+        iban = s.iban.trim().ifBlank { null },
+        vatin = s.vatin.trim().ifBlank { null },
+        dateOfBirth = s.dateOfBirth,
+        diedAt = s.diedAt,
+        diedFrom = s.diedFrom.trim().ifBlank { null },
+        firstMet = s.firstMet.trim().ifBlank { null },
+        note = s.note.trim().ifBlank { null },
+        active = s.active,
+        gender = s.genderId?.let { id -> s.genders.firstOrNull { it.id == id } },
+        nationality = s.nationalityId?.let { id -> s.nationalities.firstOrNull { it.id == id } },
+        contactGroups = s.contactGroups.filter { it.id in s.selectedGroupIds },
+    )
 
     fun setSalutation(v: String) = _state.update { it.copy(salutation = v).clearErrors() }
     fun setFirstName(v: String) = _state.update { it.copy(firstName = v).clearErrors() }
@@ -229,6 +267,12 @@ class EditContactViewModel @Inject constructor(
             }
             result.fold(
                 onSuccess = { newId ->
+                    // Update in place: publish the edited contact so an open detail view
+                    // reflects it (e.g. the top-bar name) without a network refetch. Only
+                    // for updates — a freshly created contact opens the detail view anew.
+                    original?.let { orig ->
+                        if (id != null) contactsRepository.publishContactUpdate(orig.applyEdited(s))
+                    }
                     val pendingBytes = s.pendingImageBytes
                     val pendingMime = s.pendingImageMime
                     if (id == null && pendingBytes != null && pendingMime != null) {

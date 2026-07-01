@@ -55,7 +55,9 @@ import at.gdev.contacts.domain.repository.ContactSearchPage
 import at.gdev.contacts.domain.repository.ContactsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -85,6 +87,15 @@ class DefaultContactsRepository @Inject constructor(
     private var lastQuery: String? = null
 
     override val summaries: Flow<List<ContactSummary>> = cache.asStateFlow()
+
+    // Buffered so publishContactUpdate() can be a non-suspending fire-and-forget from
+    // the edit screen; the detail screen's collector is already active on the back stack.
+    private val _contactUpdates = MutableSharedFlow<Contact>(extraBufferCapacity = 1)
+    override val contactUpdates: Flow<Contact> = _contactUpdates.asSharedFlow()
+
+    override fun publishContactUpdate(contact: Contact) {
+        _contactUpdates.tryEmit(contact)
+    }
 
     override suspend fun refresh(query: String?): Result<Unit> = runCatching {
         val q = query?.takeIf { it.isNotBlank() }

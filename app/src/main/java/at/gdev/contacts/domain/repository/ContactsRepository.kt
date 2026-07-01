@@ -12,6 +12,17 @@ data class ContactSearchPage(val contacts: List<ContactSummary>, val hasMore: Bo
 
 interface ContactsRepository {
     val summaries: Flow<List<ContactSummary>>
+
+    /**
+     * Emits the full [Contact] whenever an already-open contact is edited, so screens
+     * showing it can update in place without a refetch. Editing happens on a separate
+     * screen from the detail view, so this is how the detail view learns of the change.
+     */
+    val contactUpdates: Flow<Contact>
+
+    /** Publishes an edited contact to [contactUpdates]. */
+    fun publishContactUpdate(contact: Contact)
+
     suspend fun refresh(query: String? = null): Result<Unit>
     suspend fun getContact(id: String): Contact?
 

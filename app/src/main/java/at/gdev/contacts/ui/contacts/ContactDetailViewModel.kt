@@ -116,9 +116,22 @@ class ContactDetailViewModel @Inject constructor(
 
     init {
         load()
+        observeContactUpdates()
     }
 
     fun reload() = load()
+
+    // The base-contact edit lives on a separate screen; on a successful save it
+    // publishes the edited contact here, so the detail view updates in place (e.g.
+    // the top-bar name) without a network refetch. The collector stays active for
+    // the VM's lifetime — the detail VM survives on the back stack while editing.
+    private fun observeContactUpdates() {
+        viewModelScope.launch {
+            repository.contactUpdates.collect { updated ->
+                if (updated.id == contactId) _state.update { it.copy(contact = updated) }
+            }
+        }
+    }
 
     private fun load() {
         viewModelScope.launch {

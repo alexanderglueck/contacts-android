@@ -71,7 +71,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import android.content.Context
 import android.content.Intent
 import at.gdev.contacts.ui.common.ContactAvatar
@@ -117,17 +116,6 @@ fun ContactDetailScreen(
     val state by viewModel.state.collectAsState()
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-
-    // Refetch when the screen resumes so edits made on the separate base-edit
-    // screen (e.g. a name change, which drives the top-bar title) are reflected
-    // on return. The first resume is covered by the ViewModel's init load, so
-    // skip it to avoid a redundant fetch; the reload is silent (no spinner)
-    // because a contact is already loaded.
-    var firstResume by remember { mutableStateOf(true) }
-    LifecycleResumeEffect(viewModel) {
-        if (firstResume) firstResume = false else viewModel.reload()
-        onPauseOrDispose { }
-    }
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
