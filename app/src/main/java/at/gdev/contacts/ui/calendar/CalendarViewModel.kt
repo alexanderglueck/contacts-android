@@ -71,7 +71,12 @@ class CalendarViewModel @Inject constructor(
     private fun loadUpcoming() {
         viewModelScope.launch {
             _state.update { it.copy(upcomingLoading = true, upcomingError = null) }
-            repository.upcoming()
+            // Drive the window client-side (today .. +14 days) via the range query the
+            // month view uses. The dedicated /calendar/upcoming endpoint returned a
+            // fixed ~1-week window, so events 8-14 days out never showed here even
+            // though they appeared in the month grid.
+            val today = LocalDate.now()
+            repository.events(today, today.plusDays(UPCOMING_WINDOW_DAYS))
                 .onSuccess { events ->
                     _state.update {
                         it.copy(upcomingLoading = false, upcoming = events.sortedBy { e -> e.date })
@@ -111,5 +116,10 @@ class CalendarViewModel @Inject constructor(
                     }
                 }
         }
+    }
+
+    private companion object {
+        /** How many days ahead the Upcoming list covers (today .. today + N). */
+        const val UPCOMING_WINDOW_DAYS = 14L
     }
 }

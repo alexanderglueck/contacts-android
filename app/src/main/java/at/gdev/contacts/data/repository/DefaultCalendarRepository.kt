@@ -17,13 +17,6 @@ class DefaultCalendarRepository @Inject constructor(
     private val json: Json,
 ) : CalendarRepository {
 
-    override suspend fun upcoming(): Result<List<CalendarEvent>> = runCatching {
-        api.upcoming().data.mapNotNull { it.toDomain() }
-    }.fold(
-        onSuccess = { Result.success(it) },
-        onFailure = { Result.failure(it.toDomainError(json)) },
-    )
-
     override suspend fun events(from: LocalDate, to: LocalDate): Result<List<CalendarEvent>> = runCatching {
         api.events(from.format(ISO), to.format(ISO)).data.mapNotNull { it.toDomain() }
     }.fold(
