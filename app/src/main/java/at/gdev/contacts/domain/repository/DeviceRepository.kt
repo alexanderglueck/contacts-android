@@ -20,8 +20,11 @@ interface DeviceRepository {
     suspend fun onFcmTokenRefreshed(token: String)
 
     /**
-     * Re-registers after FCM reports a new installation ID, so the backend sees
-     * the current FID even when the legacy token is unchanged.
+     * Persists the installation ID FCM reports through `onRegistered` and re-registers,
+     * so the backend sees the current FID even when the legacy token is unchanged.
+     *
+     * This callback is the only source of an addressable FID; an ID read from
+     * FirebaseInstallations is not a messaging target and FCM rejects it.
      */
-    suspend fun onFcmRegistrationChanged()
+    suspend fun onFcmRegistrationChanged(installationId: String)
 }

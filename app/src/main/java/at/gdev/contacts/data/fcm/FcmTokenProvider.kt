@@ -1,7 +1,6 @@
 package at.gdev.contacts.data.fcm
 
 import at.gdev.contacts.data.auth.TokenStore
-import com.google.firebase.installations.FirebaseInstallations
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -26,10 +25,22 @@ class FcmTokenProvider @Inject constructor(
     }
 
     /**
-     * The Firebase installation ID, which FCM's non-deprecated registration flow
-     * uses in place of a registration token. Best-effort: a failure here must not
-     * block registration, since the token is what push delivery still runs on.
+     * The installation ID FCM has registered as a messaging target, as reported by
+     * [at.gdev.contacts.data.fcm.ContactsMessagingService.onRegistered].
+     *
+     * Deliberately not FirebaseInstallations.getId(): that hands back an installation
+     * identifier, which is *not* addressable on its own. Sending to one was verified
+     * against production FCM and answered 404 UNREGISTERED, both in the `token` field
+     * and in the native `fid` field. Only the value the registration callback reports
+     * is a valid target.
+     *
+     * Null until FCM has registered this installation. Registration is nudged here so
+     * the callback fires, but it lands asynchronously -- the token remains what push
+     * delivery runs on in the meantime.
      */
-    suspend fun installationId(): String? =
-        runCatching { FirebaseInstallations.getInstance().id.await() }.getOrNull()
+    suspend fun installationId(): String? {
+        tokenStore.currentFid()?.let { return it }
+        runCatching { FirebaseMessaging.getInstance().register().await() }
+        return null
+    }
 }

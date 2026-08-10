@@ -96,8 +96,6 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
-    // FID lookup for device registration; FCM is migrating off registration tokens.
-    implementation(libs.firebase.installations)
     implementation(libs.kotlinx.coroutines.play.services)
 
     testImplementation(libs.junit)

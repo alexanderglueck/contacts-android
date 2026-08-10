@@ -52,7 +52,7 @@ class ContactsMessagingService : FirebaseMessagingService() {
      */
     override fun onRegistered(installationId: String) {
         Log.d(TAG, "onRegistered: ${installationId.take(12)}…")
-        scope.launch { deviceRepository.onFcmRegistrationChanged() }
+        scope.launch { deviceRepository.onFcmRegistrationChanged(installationId) }
     }
 
     override fun onMessageReceived(message: RemoteMessage) {

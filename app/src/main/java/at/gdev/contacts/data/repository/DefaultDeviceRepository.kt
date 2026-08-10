@@ -35,7 +35,8 @@ class DefaultDeviceRepository @Inject constructor(
             .onFailure { Log.w(TAG, "Re-registration after token refresh failed", it) }
     }
 
-    override suspend fun onFcmRegistrationChanged() {
+    override suspend fun onFcmRegistrationChanged(installationId: String) {
+        tokenStore.saveFid(installationId)
         // Only the FID moved, so the token-based de-dupe in registerCurrentDevice
         // would skip this; re-POST instead, which the backend upserts by token.
         if (tokenStore.token.first() == null) return

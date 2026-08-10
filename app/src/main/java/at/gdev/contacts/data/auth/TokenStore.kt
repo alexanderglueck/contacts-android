@@ -66,6 +66,19 @@ class TokenStore @Inject constructor(
         context.dataStore.edit { it[Keys.FCM_TOKEN] = token }
     }
 
+    /**
+     * The installation ID FCM last reported through `onRegistered`. This is deliberately
+     * not read from FirebaseInstallations: that returns an installation identifier, which
+     * is not by itself a messaging target (FCM answers 404 UNREGISTERED for one). Only the
+     * value handed back by the registration callback is addressable.
+     */
+    suspend fun currentFid(): String? =
+        context.dataStore.data.first()[Keys.FCM_FID]
+
+    suspend fun saveFid(fid: String) {
+        context.dataStore.edit { it[Keys.FCM_FID] = fid }
+    }
+
     /** The token last successfully registered with the backend; used to de-dupe registrations. */
     suspend fun registeredFcmToken(): String? =
         context.dataStore.data.first()[Keys.REGISTERED_FCM_TOKEN]
@@ -107,6 +120,7 @@ class TokenStore @Inject constructor(
         val TEAM_UUID = stringPreferencesKey("team_uuid")
         val TEAM_NAME = stringPreferencesKey("team_name")
         val FCM_TOKEN = stringPreferencesKey("fcm_token")
+        val FCM_FID = stringPreferencesKey("fcm_fid")
         val REGISTERED_FCM_TOKEN = stringPreferencesKey("registered_fcm_token")
         val REGISTERED_DEVICE_ID = stringPreferencesKey("registered_device_id")
     }
