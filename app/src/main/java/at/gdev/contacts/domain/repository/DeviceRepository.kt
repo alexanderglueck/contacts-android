@@ -24,7 +24,4 @@ interface DeviceRepository {
      * the current FID even when the legacy token is unchanged.
      */
     suspend fun onFcmRegistrationChanged()
-
-    /** Best-effort removal of this device's token on logout. */
-    suspend fun deregisterCurrentDevice()
 }

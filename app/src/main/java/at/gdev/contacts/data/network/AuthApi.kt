@@ -7,8 +7,10 @@ import at.gdev.contacts.data.network.dto.LogoutResponse
 import at.gdev.contacts.data.network.dto.MeResponse
 import at.gdev.contacts.data.network.dto.RegisterRequest
 import at.gdev.contacts.data.network.dto.TwoFactorChallengeRequest
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 
 interface AuthApi {
@@ -23,6 +25,14 @@ interface AuthApi {
 
     @POST("auth/logout")
     suspend fun logout(): LogoutResponse
+
+    /**
+     * Revokes an explicitly supplied token. Used by the post-logout cleanup
+     * worker, which runs after the local session (and its token) is cleared, so
+     * the auth interceptor can no longer attach it.
+     */
+    @POST("auth/logout")
+    suspend fun logout(@Header("Authorization") authorization: String): Response<Unit>
 
     @GET("auth/me")
     suspend fun me(): MeResponse

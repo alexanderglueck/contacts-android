@@ -1,6 +1,7 @@
 package at.gdev.contacts.data.repository
 
 import android.os.Build
+import at.gdev.contacts.data.auth.RemoteLogoutScheduler
 import at.gdev.contacts.data.auth.TokenStore
 import at.gdev.contacts.data.local.CallEventStore
 import at.gdev.contacts.data.local.ContactsDao
@@ -19,6 +20,7 @@ import at.gdev.contacts.domain.model.TeamSummary
 import at.gdev.contacts.domain.repository.AuthRepository
 import at.gdev.contacts.domain.repository.DeviceRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -32,6 +34,7 @@ class DefaultAuthRepository @Inject constructor(
     private val contactsDao: ContactsDao,
     private val callEventStore: CallEventStore,
     private val deviceRepository: DeviceRepository,
+    private val logoutScheduler: RemoteLogoutScheduler,
 ) : AuthRepository {
 
     override val session: Flow<AuthSession?> = tokenStore.session
@@ -101,12 +104,19 @@ class DefaultAuthRepository @Inject constructor(
     }.mapError()
 
     override suspend fun logout() {
-        runCatching { api.logout() }
-        deviceRepository.deregisterCurrentDevice()
+        // Capture what the server-side cleanup needs before wiping the local session.
+        val token = tokenStore.token.first()
+        val deviceId = tokenStore.registeredDeviceId()
+
+        // Sign out locally right away so the UI reacts even with no network.
         tokenStore.clear()
         syncScheduler.cancelAll()
         contactsDao.clearAll()
         callEventStore.clear()
+
+        // De-register this device and revoke the token in the background, with retry,
+        // so a failed or offline logout doesn't leave a stale device row on the backend.
+        if (token != null) logoutScheduler.schedule(token = token, deviceId = deviceId)
     }
 
     private fun AuthResponse.toSession(): AuthSession =

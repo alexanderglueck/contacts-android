@@ -43,17 +43,6 @@ class DefaultDeviceRepository @Inject constructor(
             .onFailure { Log.w(TAG, "Re-registration after installation-ID change failed", it) }
     }
 
-    override suspend fun deregisterCurrentDevice() {
-        runCatching {
-            val deviceId = tokenStore.registeredDeviceId()
-            if (!deviceId.isNullOrBlank()) {
-                api.deregister(deviceId)
-            }
-        }.onFailure { Log.w(TAG, "Device de-registration failed", it) }
-        tokenStore.setRegisteredFcmToken(null)
-        tokenStore.setRegisteredDeviceId(null)
-    }
-
     /** POSTs the device and remembers the token + returned ULID for de-dupe / de-registration. */
     private suspend fun register(token: String) {
         val request = RegisterDeviceRequest(
