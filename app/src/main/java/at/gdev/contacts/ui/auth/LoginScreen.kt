@@ -21,7 +21,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -79,7 +82,9 @@ private fun CredentialsStep(
         label = { Text("Email") },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentType = ContentType.Username + ContentType.EmailAddress },
     )
     Spacer(Modifier.height(12.dp))
     OutlinedTextField(
@@ -89,7 +94,9 @@ private fun CredentialsStep(
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentType = ContentType.Password },
     )
 
     if (state.error != null) {
@@ -138,7 +145,12 @@ private fun TwoFactorStep(state: LoginUiState, viewModel: LoginViewModel) {
         keyboardOptions = KeyboardOptions(
             keyboardType = if (usingRecovery) KeyboardType.Text else KeyboardType.NumberPassword,
         ),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (usingRecovery) Modifier
+                else Modifier.semantics { contentType = ContentType.SmsOtpCode },
+            ),
     )
 
     if (state.error != null) {
