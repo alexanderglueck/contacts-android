@@ -36,9 +36,23 @@ class ContactsMessagingService : FirebaseMessagingService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    // Deprecated in favor of onRegistered, but the token is still what the backend
+    // addresses pushes by, so we keep tracking refreshes until it sends via `fid`.
+    @Deprecated("FCM is migrating registration to installation IDs; see onRegistered.")
+    @Suppress("DEPRECATION")
     override fun onNewToken(token: String) {
         Log.d(TAG, "onNewToken: ${token.take(12)}…")
         scope.launch { deviceRepository.onFcmTokenRefreshed(token) }
+    }
+
+    /**
+     * FCM's replacement for [onNewToken]: fires with the current installation ID
+     * on registration and whenever the FID changes (restore, reinstall, cleared
+     * data). Re-registers so the backend always holds a live FID.
+     */
+    override fun onRegistered(installationId: String) {
+        Log.d(TAG, "onRegistered: ${installationId.take(12)}…")
+        scope.launch { deviceRepository.onFcmRegistrationChanged() }
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
