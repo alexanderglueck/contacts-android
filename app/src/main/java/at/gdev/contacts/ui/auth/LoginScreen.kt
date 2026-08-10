@@ -143,7 +143,12 @@ private fun TwoFactorStep(state: LoginUiState, viewModel: LoginViewModel) {
         label = { Text(if (usingRecovery) "Recovery code" else "Authentication code") },
         singleLine = true,
         keyboardOptions = KeyboardOptions(
-            keyboardType = if (usingRecovery) KeyboardType.Text else KeyboardType.NumberPassword,
+            // Number rather than NumberPassword: the password variation marks the field
+            // as a secret, and IMEs respond by hiding the suggestion strip -- which is
+            // where an autofill provider's "fill one-time code" offer is rendered. The
+            // code is displayed in clear text here anyway, so the variation bought us
+            // nothing and cost us the offer.
+            keyboardType = if (usingRecovery) KeyboardType.Text else KeyboardType.Number,
         ),
         modifier = Modifier
             .fillMaxWidth()
