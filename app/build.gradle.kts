@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "at.gdev.contacts"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "at.gdev.contacts"
