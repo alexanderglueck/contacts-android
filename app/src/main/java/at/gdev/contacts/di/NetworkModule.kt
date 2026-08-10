@@ -9,7 +9,6 @@ import at.gdev.contacts.data.network.ContactsApi
 import at.gdev.contacts.data.network.DevicesApi
 import at.gdev.contacts.data.network.ReferenceApi
 import at.gdev.contacts.data.network.TeamsApi
-import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -19,6 +18,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import javax.inject.Singleton
 
 @Module
