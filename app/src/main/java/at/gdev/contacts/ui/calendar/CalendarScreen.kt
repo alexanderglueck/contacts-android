@@ -48,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -255,7 +256,7 @@ private fun MonthHeader(
             Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month")
         }
         Text(
-            text = "${month.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${month.year}",
+            text = "${month.month.getDisplayName(TextStyle.FULL, LocalLocale.current.platformLocale)} ${month.year}",
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
@@ -279,7 +280,7 @@ private fun WeekdayRow(firstDayOfWeek: DayOfWeek) {
     ) {
         days.forEach { day ->
             Text(
-                text = day.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                text = day.getDisplayName(TextStyle.SHORT, LocalLocale.current.platformLocale),
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline,
