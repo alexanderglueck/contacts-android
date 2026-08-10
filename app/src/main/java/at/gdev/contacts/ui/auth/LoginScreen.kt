@@ -19,9 +19,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
@@ -125,6 +128,16 @@ private fun CredentialsStep(
 @Composable
 private fun TwoFactorStep(state: LoginUiState, viewModel: LoginViewModel) {
     val usingRecovery = state.useRecoveryCode
+    val codeFocus = remember { FocusRequester() }
+
+    // Focus the field as soon as this step appears. Besides saving a tap, it is what
+    // prompts the platform to raise a fresh autofill request: the credentials fields are
+    // gone by now, so that session has been committed, and a provider only gets the
+    // chance to offer the one-time code once this newly composed field takes focus.
+    LaunchedEffect(usingRecovery) {
+        runCatching { codeFocus.requestFocus() }
+    }
+
     Text("Two-factor authentication", style = MaterialTheme.typography.headlineSmall)
     Spacer(Modifier.height(8.dp))
     Text(
@@ -152,6 +165,7 @@ private fun TwoFactorStep(state: LoginUiState, viewModel: LoginViewModel) {
         ),
         modifier = Modifier
             .fillMaxWidth()
+            .focusRequester(codeFocus)
             .then(
                 if (usingRecovery) Modifier
                 else Modifier.semantics { contentType = ContentType.SmsOtpCode },
