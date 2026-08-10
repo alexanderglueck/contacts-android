@@ -7,13 +7,14 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.core.app.NotificationCompat
-import androidx.core.graphics.drawable.toBitmap
 import at.gdev.contacts.R
 import at.gdev.contacts.domain.model.ContactLookup
 import at.gdev.contacts.ui.MainActivity
-import coil.imageLoader
-import coil.request.ImageRequest
-import coil.request.SuccessResult
+import coil3.imageLoader
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import coil3.request.allowHardware
+import coil3.toBitmap
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -84,7 +85,7 @@ class CallerIdNotifier @Inject constructor(
             .allowHardware(false)
             .build()
         when (val result = context.imageLoader.execute(request)) {
-            is SuccessResult -> result.drawable.toBitmap()
+            is SuccessResult -> result.image.toBitmap()
             else -> null
         }
     }.getOrNull()

@@ -21,7 +21,7 @@ splashscreen = "1.2.0"
 # at 2.3.x by the AGP/KGP new-DSL standoff described in gradle.properties.
 markdownRenderer = "0.41.0"
 kizitonwoseCalendar = "2.10.1"
-coil = "2.7.0"
+coil = "3.5.0"
 room = "2.8.4"
 workManager = "2.11.2"
 hiltWork = "1.4.0"
@@ -73,7 +73,8 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 markdown-renderer-m3 = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
 calendar-compose = { group = "com.kizitonwose.calendar", name = "compose", version.ref = "kizitonwoseCalendar" }
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 
 # Room (local contact cache for caller-ID)
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }

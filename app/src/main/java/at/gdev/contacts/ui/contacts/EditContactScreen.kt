@@ -58,7 +58,7 @@ import at.gdev.contacts.ui.common.initialsOf
 import at.gdev.contacts.ui.common.newCaptureFile
 import at.gdev.contacts.ui.contacts.edit.DateField
 import at.gdev.contacts.ui.contacts.edit.NamedRefDropdown
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)

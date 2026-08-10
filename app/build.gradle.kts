@@ -81,6 +81,8 @@ dependencies {
     implementation(libs.markdown.renderer.m3)
     implementation(libs.calendar.compose)
     implementation(libs.coil.compose)
+    // Coil 3 no longer bundles a network stack; this is the OkHttp-backed fetcher.
+    implementation(libs.coil.network.okhttp)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

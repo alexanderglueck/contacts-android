@@ -8,14 +8,17 @@ import androidx.core.content.getSystemService
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import at.gdev.contacts.data.sync.ContactSyncScheduler
-import coil.ImageLoader
-import coil.ImageLoaderFactory
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.crossfade
 import dagger.hilt.android.HiltAndroidApp
 import okhttp3.OkHttpClient
 import javax.inject.Inject
 
 @HiltAndroidApp
-class ContactsApp : Application(), Configuration.Provider, ImageLoaderFactory {
+class ContactsApp : Application(), Configuration.Provider, SingletonImageLoader.Factory {
 
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var syncScheduler: ContactSyncScheduler
@@ -30,10 +33,11 @@ class ContactsApp : Application(), Configuration.Provider, ImageLoaderFactory {
      * Hand Coil the same authenticated OkHttp client Retrofit uses, so any
      * image URL that's auth-gated picks up the Bearer token automatically.
      */
-    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
-        .okHttpClient(okHttpClient)
-        .crossfade(true)
-        .build()
+    override fun newImageLoader(context: PlatformContext): ImageLoader =
+        ImageLoader.Builder(context)
+            .components { add(OkHttpNetworkFetcherFactory(callFactory = { okHttpClient })) }
+            .crossfade(true)
+            .build()
 
     override fun onCreate() {
         super.onCreate()

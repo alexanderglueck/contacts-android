@@ -25,7 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import at.gdev.contacts.ui.common.PhotoSource
 import at.gdev.contacts.ui.common.captureUri
 import at.gdev.contacts.ui.common.newCaptureFile
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import java.io.File
 import java.time.LocalDate
 import java.time.Period
