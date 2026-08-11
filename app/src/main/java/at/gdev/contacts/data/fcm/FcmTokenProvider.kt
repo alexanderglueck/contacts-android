@@ -40,6 +40,12 @@ class FcmTokenProvider @Inject constructor(
      */
     suspend fun installationId(): String? {
         tokenStore.currentFid()?.let { return it }
+        // register() is the call that links this installation to FCM as a message target,
+        // and it is gated on the firebase_messaging_installation_id_enabled manifest flag --
+        // which inversely *disables* getToken() when set, so the two registration modes
+        // cannot run side by side. This build does not set the flag, so this throws
+        // IllegalStateException and we stay on the token path. Kept, and deliberately
+        // swallowed, because it is the correct call the moment the flag is enabled.
         runCatching { FirebaseMessaging.getInstance().register().await() }
         return null
     }
