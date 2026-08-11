@@ -67,6 +67,15 @@ class TokenStore @Inject constructor(
     }
 
     /**
+     * Forgets the pre-cutover registration token. Called once the backend has matched this
+     * device by it and adopted the FID; no new token can be issued, so there is nothing to
+     * put back.
+     */
+    suspend fun clearFcmToken() {
+        context.dataStore.edit { it.remove(Keys.FCM_TOKEN) }
+    }
+
+    /**
      * The installation ID FCM last reported through `onRegistered`. This is deliberately
      * not read from FirebaseInstallations: that returns an installation identifier, which
      * is not by itself a messaging target (FCM answers 404 UNREGISTERED for one). Only the

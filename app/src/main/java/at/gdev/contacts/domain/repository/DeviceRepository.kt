@@ -16,9 +16,6 @@ interface DeviceRepository {
     /** Registers the current device if its FCM token hasn't been registered yet. */
     suspend fun registerCurrentDevice()
 
-    /** Persists a refreshed FCM token and re-registers when a session exists. */
-    suspend fun onFcmTokenRefreshed(token: String)
-
     /**
      * Persists the installation ID FCM reports through `onRegistered` and re-registers,
      * so the backend sees the current FID even when the legacy token is unchanged.

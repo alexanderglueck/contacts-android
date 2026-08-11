@@ -48,6 +48,17 @@
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/notification_accent" />
 
+        <!--
+            Registers this app instance with FCM by Firebase installation ID rather than by
+            registration token. This enables register()/onRegistered and simultaneously
+            disables getToken(): the two modes are mutually exclusive, so this flag is the
+            cutover. Verified before flipping it, by pushing to a registered FID on a
+            throwaway installation and confirming the message was both accepted and rendered.
+        -->
+        <meta-data
+            android:name="firebase_messaging_installation_id_enabled"
+            android:value="true" />
+
         <service
             android:name=".calls.CallerIdScreeningService"
             android:permission="android.permission.BIND_SCREENING_SERVICE"

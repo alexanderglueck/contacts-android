@@ -7,26 +7,24 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Resolves the identifiers push delivery is addressed by: the FCM registration
- * token, cached in [TokenStore] so we don't hit Firebase on every sign-in, and
- * the Firebase installation ID that FCM is migrating to.
+ * Resolves the installation ID that push delivery is addressed by, plus -- for one
+ * registration only -- the registration token this device used before the cutover.
  */
 @Singleton
 class FcmTokenProvider @Inject constructor(
     private val tokenStore: TokenStore,
 ) {
     /**
-     * The FCM registration token, or null when this app instance registers by installation
-     * ID instead: `getToken()` throws once firebase_messaging_installation_id_enabled is
-     * set, and the two modes are mutually exclusive. Null is a normal state, not an error --
-     * the caller registers with whichever identifier it has.
+     * The registration token this device last held, read only from [TokenStore] and never
+     * from the SDK: `getToken()` throws now that registration goes through installation IDs.
+     *
+     * Sent alongside the FID on the first registration after the cutover, purely so the
+     * backend can match this device by its old token and adopt the new FID onto the existing
+     * row instead of orphaning it. Cleared once that has happened, after which registration
+     * is by FID alone. Null on installs that never held a token.
      */
-    @Suppress("DEPRECATION") // Deprecated in favor of register(); see installationId().
-    suspend fun current(): String? {
-        tokenStore.currentFcmToken()?.takeIf { it.isNotBlank() }?.let { return it }
-        val fresh = runCatching { FirebaseMessaging.getInstance().token.await() }.getOrNull()
-        return fresh?.also { tokenStore.saveFcmToken(it) }
-    }
+    suspend fun preCutoverToken(): String? =
+        tokenStore.currentFcmToken()?.takeIf { it.isNotBlank() }
 
     /**
      * The installation ID FCM has registered as a messaging target, as reported by
@@ -38,18 +36,14 @@ class FcmTokenProvider @Inject constructor(
      * and in the native `fid` field. Only the value the registration callback reports
      * is a valid target.
      *
-     * Null until FCM has registered this installation. Registration is nudged here so
-     * the callback fires, but it lands asynchronously -- the token remains what push
-     * delivery runs on in the meantime.
+     * Null until FCM has registered this installation. register() is nudged here so the
+     * callback fires; it resolves asynchronously, so a null return simply means "not yet"
+     * and registration is deferred until `onRegistered` arrives.
      */
     suspend fun installationId(): String? {
         tokenStore.currentFid()?.let { return it }
-        // register() is the call that links this installation to FCM as a message target,
-        // and it is gated on the firebase_messaging_installation_id_enabled manifest flag --
-        // which inversely *disables* getToken() when set, so the two registration modes
-        // cannot run side by side. This build does not set the flag, so this throws
-        // IllegalStateException and we stay on the token path. Kept, and deliberately
-        // swallowed, because it is the correct call the moment the flag is enabled.
+        // Links this installation to FCM as a message target. Auto-init fires this on startup
+        // too, so the nudge only matters when we need an ID before that has happened.
         runCatching { FirebaseMessaging.getInstance().register().await() }
         return null
     }

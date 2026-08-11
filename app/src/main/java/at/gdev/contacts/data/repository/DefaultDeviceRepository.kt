@@ -20,7 +20,7 @@ class DefaultDeviceRepository @Inject constructor(
 
     override suspend fun registerCurrentDevice() {
         runCatching {
-            val token = fcmTokenProvider.current()
+            val token = fcmTokenProvider.preCutoverToken()
             val fid = fcmTokenProvider.installationId()
             if (token == null && fid == null) {
                 // Registering by installation ID and FCM hasn't reported one yet; onRegistered
@@ -34,20 +34,12 @@ class DefaultDeviceRepository @Inject constructor(
         }.onFailure { Log.w(TAG, "Device registration failed", it) }
     }
 
-    override suspend fun onFcmTokenRefreshed(token: String) {
-        tokenStore.saveFcmToken(token)
-        // Only register if signed in; otherwise the next sign-in will register it.
-        if (tokenStore.token.first() == null) return
-        runCatching { register(token, fcmTokenProvider.installationId()) }
-            .onFailure { Log.w(TAG, "Re-registration after token refresh failed", it) }
-    }
-
     override suspend fun onFcmRegistrationChanged(installationId: String) {
         tokenStore.saveFid(installationId)
         // Only the FID moved, so the de-dupe in registerCurrentDevice may skip this;
         // re-POST instead, which the backend upserts onto the existing row.
         if (tokenStore.token.first() == null) return
-        runCatching { register(fcmTokenProvider.current(), installationId) }
+        runCatching { register(fcmTokenProvider.preCutoverToken(), installationId) }
             .onFailure { Log.w(TAG, "Re-registration after installation-ID change failed", it) }
     }
 
@@ -62,6 +54,10 @@ class DefaultDeviceRepository @Inject constructor(
         tokenStore.setRegisteredFcmToken(token)
         tokenStore.setRegisteredFid(fid)
         tokenStore.setRegisteredDeviceId(device.id)
+        // The old token has now done its only job -- letting the backend find this device's
+        // existing row and adopt the FID onto it. Drop it so later registrations are by FID
+        // alone and we stop presenting a token that can no longer be issued or refreshed.
+        if (fid != null && token != null) tokenStore.clearFcmToken()
     }
 
     private fun deviceName(): String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()

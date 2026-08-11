@@ -33,16 +33,6 @@ android {
             )
             signingConfig = signingConfigs.getByName("debug")
         }
-        // Validation-only variant for the FCM installation-ID migration. Registration mode is an
-        // app-instance-wide switch: the manifest flag this variant adds enables register() and
-        // simultaneously disables getToken(), so there is no way to prove FID delivery on a
-        // device that also needs the token path. Run this on an emulator -- installing it on a
-        // phone that relies on push cuts that phone over, irreversibly until a rebuild.
-        create("fidtest") {
-            initWith(getByName("debug"))
-            versionNameSuffix = "-fidtest"
-            signingConfig = signingConfigs.getByName("debug")
-        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
