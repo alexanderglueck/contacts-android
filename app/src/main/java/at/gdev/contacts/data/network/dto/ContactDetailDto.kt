@@ -19,6 +19,13 @@ data class ContactDetailDto(
     @SerialName("title_after") val titleAfter: String? = null,
     val salutation: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,
+    /**
+     * Uncropped renditions of the same upload. Null far more often than not: photos uploaded
+     * before the renditions existed have no source left to derive them from, and sources no
+     * bigger than the 400x400 avatar are not upscaled. Always fall back to [imageUrl].
+     */
+    @SerialName("image_medium_url") val imageMediumUrl: String? = null,
+    @SerialName("image_full_url") val imageFullUrl: String? = null,
     val active: Boolean = true,
 
     val company: String? = null,

@@ -28,6 +28,13 @@ data class Contact(
     val titleAfter: String? = null,
     val salutation: String? = null,
     val imageUrl: String? = null,
+    /**
+     * Larger renditions of the avatar's source photo, uncropped and in the original aspect
+     * ratio -- so not simply bigger versions of [imageUrl], which is a square crop. Null
+     * whenever the server has no source to derive them from; fall back to [imageUrl].
+     */
+    val imageMediumUrl: String? = null,
+    val imageFullUrl: String? = null,
     val active: Boolean = true,
 
     val company: String? = null,

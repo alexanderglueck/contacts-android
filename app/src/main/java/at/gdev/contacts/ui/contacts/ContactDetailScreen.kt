@@ -213,8 +213,11 @@ fun ContactDetailScreen(
         ImageViewerDialog(
             contact = state.contact!!,
             submitting = state.imageSubmitting,
+            downloading = state.imageDownloading,
             error = state.imageError,
+            savedMessage = state.imageSavedMessage,
             oversize = state.oversizeImage,
+            onDownload = viewModel::downloadImage,
             onDismiss = viewModel::closeImageViewer,
             onTakePhoto = viewModel::uploadImage,
             onRemove = viewModel::removeImage,
@@ -229,8 +232,11 @@ fun ContactDetailScreen(
 private fun ImageViewerDialog(
     contact: Contact,
     submitting: Boolean,
+    downloading: Boolean,
     error: String?,
+    savedMessage: String?,
     oversize: OversizeImage?,
+    onDownload: () -> Unit,
     onDismiss: () -> Unit,
     onTakePhoto: (ByteArray, String) -> Unit,
     onRemove: () -> Unit,
@@ -324,7 +330,9 @@ private fun ImageViewerDialog(
                         )
                     } else {
                         AsyncImage(
-                            model = contact.imageUrl,
+                            // The uncropped rendition when the server has one, so the viewer
+                            // shows the whole frame rather than an enlarged square crop.
+                            model = contact.imageMediumUrl ?: contact.imageUrl,
                             contentDescription = null,
                             contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                             modifier = Modifier.fillMaxSize(),
@@ -334,6 +342,11 @@ private fun ImageViewerDialog(
 
                 if (error != null) {
                     Text(error, color = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                if (savedMessage != null) {
+                    Text(savedMessage, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(8.dp))
                 }
 
@@ -357,6 +370,26 @@ private fun ImageViewerDialog(
                         enabled = !submitting,
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("Choose from gallery") }
+
+                    // Only when a rendition actually exists. Contacts photographed before the
+                    // server kept the source have nothing but the 400x400 crop, and offering a
+                    // "download" that hands over a thumbnail would be a lie.
+                    if (contact.imageFullUrl != null || contact.imageMediumUrl != null) {
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = onDownload,
+                            enabled = !submitting && !downloading,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            if (downloading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Text("Download full size")
+                            }
+                        }
+                    }
                 }
             }
         }

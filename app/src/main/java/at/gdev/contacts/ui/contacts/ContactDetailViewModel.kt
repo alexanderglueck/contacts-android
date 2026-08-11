@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import at.gdev.contacts.data.local.CallEventStore
 import at.gdev.contacts.data.network.ValidationException
 import at.gdev.contacts.data.util.DateTimes
+import at.gdev.contacts.data.util.ImageDownloader
 import at.gdev.contacts.data.util.downsizeJpeg
 import at.gdev.contacts.domain.model.Contact
 import at.gdev.contacts.domain.model.ContactAddress
@@ -69,6 +70,8 @@ data class ContactDetailUiState(
     val imageSubmitting: Boolean = false,
     val imageError: String? = null,
     val oversizeImage: OversizeImage? = null,
+    val imageDownloading: Boolean = false,
+    val imageSavedMessage: String? = null,
 )
 
 sealed interface ActiveSheet {
@@ -95,6 +98,7 @@ class ContactDetailViewModel @Inject constructor(
     private val repository: ContactsRepository,
     private val referenceRepository: ReferenceRepository,
     private val callEventStore: CallEventStore,
+    private val imageDownloader: ImageDownloader,
 ) : ViewModel() {
 
     private val contactId: String = checkNotNull(savedStateHandle[Routes.ARG_CONTACT_ID])
@@ -273,6 +277,44 @@ class ContactDetailViewModel @Inject constructor(
     }
 
     fun cancelOversize() = _state.update { it.copy(oversizeImage = null, imageError = null) }
+
+    fun dismissImageSavedMessage() = _state.update { it.copy(imageSavedMessage = null) }
+
+    /**
+     * Saves the largest rendition the server actually holds. Only reachable when one exists --
+     * offering this for a contact whose only image is the 400x400 avatar would hand the user a
+     * thumbnail while calling it the original.
+     */
+    fun downloadImage() {
+        val contact = _state.value.contact ?: return
+        val url = contact.imageFullUrl ?: contact.imageMediumUrl ?: return
+        if (_state.value.imageDownloading) return
+        _state.update { it.copy(imageDownloading = true, imageError = null, imageSavedMessage = null) }
+        viewModelScope.launch {
+            val result = imageDownloader.saveToPictures(url, downloadFileName(contact))
+            _state.update { state ->
+                result.fold(
+                    onSuccess = {
+                        state.copy(imageDownloading = false, imageSavedMessage = "Saved to Pictures")
+                    },
+                    onFailure = { err ->
+                        state.copy(
+                            imageDownloading = false,
+                            imageError = err.message ?: "Couldn't save the image",
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    private fun downloadFileName(contact: Contact): String {
+        val base = contact.displayName.ifBlank { "contact" }
+            .replace(Regex("[^A-Za-z0-9 _-]"), "")
+            .trim()
+            .ifBlank { "contact" }
+        return "$base-${contact.id}.jpg"
+    }
 
     fun downsizeAndUpload() {
         val pending = _state.value.oversizeImage ?: return

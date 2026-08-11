@@ -594,6 +594,8 @@ class DefaultContactsRepository @Inject constructor(
         titleAfter = titleAfter,
         salutation = salutation,
         imageUrl = ApiConfig.normalizeImageUrl(imageUrl),
+        imageMediumUrl = ApiConfig.normalizeImageUrl(imageMediumUrl),
+        imageFullUrl = ApiConfig.normalizeImageUrl(imageFullUrl),
         active = active,
         company = company,
         job = job,
