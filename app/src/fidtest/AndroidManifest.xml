@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Switches this app instance to FCM's installation-ID registration: register() becomes
+    available and getToken() starts throwing IllegalStateException. The two modes are mutually
+    exclusive, which is why the flag lives in a variant-specific manifest rather than the main
+    one: debug and release must never pick it up.
+
+    Present only so FID delivery can be proven on a throwaway installation (an emulator) before
+    production cuts over.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <meta-data
+            android:name="firebase_messaging_installation_id_enabled"
+            android:value="true" />
+    </application>
+</manifest>

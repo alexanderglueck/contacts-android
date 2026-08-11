@@ -90,6 +90,17 @@ class TokenStore @Inject constructor(
         }
     }
 
+    /** The FID last successfully registered with the backend; paired with the token for de-dupe. */
+    suspend fun registeredFid(): String? =
+        context.dataStore.data.first()[Keys.REGISTERED_FCM_FID]
+
+    suspend fun setRegisteredFid(fid: String?) {
+        context.dataStore.edit { prefs ->
+            if (fid != null) prefs[Keys.REGISTERED_FCM_FID] = fid
+            else prefs.remove(Keys.REGISTERED_FCM_FID)
+        }
+    }
+
     /** ULID of the device row created by the backend; needed to de-register on logout. */
     suspend fun registeredDeviceId(): String? =
         context.dataStore.data.first()[Keys.REGISTERED_DEVICE_ID]
@@ -122,6 +133,7 @@ class TokenStore @Inject constructor(
         val FCM_TOKEN = stringPreferencesKey("fcm_token")
         val FCM_FID = stringPreferencesKey("fcm_fid")
         val REGISTERED_FCM_TOKEN = stringPreferencesKey("registered_fcm_token")
+        val REGISTERED_FCM_FID = stringPreferencesKey("registered_fcm_fid")
         val REGISTERED_DEVICE_ID = stringPreferencesKey("registered_device_id")
     }
 }

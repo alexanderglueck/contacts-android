@@ -15,13 +15,17 @@ import javax.inject.Singleton
 class FcmTokenProvider @Inject constructor(
     private val tokenStore: TokenStore,
 ) {
-    @Suppress("DEPRECATION") // See installationId(): the backend still addresses pushes by token.
-    suspend fun current(): String {
-        val cached = tokenStore.currentFcmToken()
-        if (!cached.isNullOrBlank()) return cached
-        val fresh = FirebaseMessaging.getInstance().token.await()
-        tokenStore.saveFcmToken(fresh)
-        return fresh
+    /**
+     * The FCM registration token, or null when this app instance registers by installation
+     * ID instead: `getToken()` throws once firebase_messaging_installation_id_enabled is
+     * set, and the two modes are mutually exclusive. Null is a normal state, not an error --
+     * the caller registers with whichever identifier it has.
+     */
+    @Suppress("DEPRECATION") // Deprecated in favor of register(); see installationId().
+    suspend fun current(): String? {
+        tokenStore.currentFcmToken()?.takeIf { it.isNotBlank() }?.let { return it }
+        val fresh = runCatching { FirebaseMessaging.getInstance().token.await() }.getOrNull()
+        return fresh?.also { tokenStore.saveFcmToken(it) }
     }
 
     /**

@@ -21,9 +21,16 @@ class DefaultDeviceRepository @Inject constructor(
     override suspend fun registerCurrentDevice() {
         runCatching {
             val token = fcmTokenProvider.current()
-            // De-dupe: skip if this exact token was already registered.
-            if (token == tokenStore.registeredFcmToken()) return
-            register(token)
+            val fid = fcmTokenProvider.installationId()
+            if (token == null && fid == null) {
+                // Registering by installation ID and FCM hasn't reported one yet; onRegistered
+                // will call back and register us then.
+                Log.d(TAG, "No push identifier available yet, deferring registration")
+                return
+            }
+            // De-dupe on both identifiers: either one changing is worth a re-POST.
+            if (token == tokenStore.registeredFcmToken() && fid == tokenStore.registeredFid()) return
+            register(token, fid)
         }.onFailure { Log.w(TAG, "Device registration failed", it) }
     }
 
@@ -31,28 +38,29 @@ class DefaultDeviceRepository @Inject constructor(
         tokenStore.saveFcmToken(token)
         // Only register if signed in; otherwise the next sign-in will register it.
         if (tokenStore.token.first() == null) return
-        runCatching { register(token) }
+        runCatching { register(token, fcmTokenProvider.installationId()) }
             .onFailure { Log.w(TAG, "Re-registration after token refresh failed", it) }
     }
 
     override suspend fun onFcmRegistrationChanged(installationId: String) {
         tokenStore.saveFid(installationId)
-        // Only the FID moved, so the token-based de-dupe in registerCurrentDevice
-        // would skip this; re-POST instead, which the backend upserts by token.
+        // Only the FID moved, so the de-dupe in registerCurrentDevice may skip this;
+        // re-POST instead, which the backend upserts onto the existing row.
         if (tokenStore.token.first() == null) return
-        runCatching { register(fcmTokenProvider.current()) }
+        runCatching { register(fcmTokenProvider.current(), installationId) }
             .onFailure { Log.w(TAG, "Re-registration after installation-ID change failed", it) }
     }
 
-    /** POSTs the device and remembers the token + returned ULID for de-dupe / de-registration. */
-    private suspend fun register(token: String) {
-        val request = RegisterDeviceRequest(
-            name = deviceName(),
-            token = token,
-            fid = fcmTokenProvider.installationId(),
-        )
+    /**
+     * POSTs the device and remembers both identifiers plus the returned ULID, for de-dupe and
+     * de-registration. At least one of [token]/[fid] must be non-null; the backend requires a
+     * name plus one identifier.
+     */
+    private suspend fun register(token: String?, fid: String?) {
+        val request = RegisterDeviceRequest(name = deviceName(), token = token, fid = fid)
         val device = api.register(request).data
         tokenStore.setRegisteredFcmToken(token)
+        tokenStore.setRegisteredFid(fid)
         tokenStore.setRegisteredDeviceId(device.id)
     }
 
