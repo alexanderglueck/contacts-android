@@ -24,6 +24,8 @@ data class Contact(
     val lastName: String,
     val fullName: String,
     val nickname: String? = null,
+    /** Surname before a name change (usually marriage); null when it never changed. */
+    val birthName: String? = null,
     val titleBefore: String? = null,
     val titleAfter: String? = null,
     val salutation: String? = null,

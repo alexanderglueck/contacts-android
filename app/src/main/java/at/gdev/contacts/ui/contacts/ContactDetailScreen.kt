@@ -624,6 +624,7 @@ private fun Header(contact: Contact, onAvatarClick: () -> Unit) {
         }
     }
     Spacer(Modifier.height(8.dp))
+    contact.birthName?.takeIf { it.isNotBlank() }?.let { LabeledLine("Birth name", it) }
     contact.nickname?.takeIf { it.isNotBlank() }?.let { LabeledLine("Nickname", it) }
     contact.salutation?.takeIf { it.isNotBlank() }?.let { LabeledLine("Salutation", it) }
     contact.company?.takeIf { it.isNotBlank() }?.let { LabeledLine("Company", it) }

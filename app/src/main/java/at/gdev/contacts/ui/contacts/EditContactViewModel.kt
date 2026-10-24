@@ -40,6 +40,7 @@ data class EditContactUiState(
     val titleBefore: String = "",
     val titleAfter: String = "",
     val nickname: String = "",
+    val birthName: String = "",
     val genderId: Int? = null,
     val nationalityId: Int? = null,
     val selectedGroupIds: Set<Int> = emptySet(),
@@ -117,6 +118,7 @@ class EditContactViewModel @Inject constructor(
             titleBefore = contact.titleBefore.orEmpty(),
             titleAfter = contact.titleAfter.orEmpty(),
             nickname = contact.nickname.orEmpty(),
+            birthName = contact.birthName.orEmpty(),
             genderId = contact.gender?.id,
             nationalityId = contact.nationality?.id,
             selectedGroupIds = contact.contactGroups.map { it.id }.toSet(),
@@ -150,6 +152,7 @@ class EditContactViewModel @Inject constructor(
         titleBefore = s.titleBefore.trim().ifBlank { null },
         titleAfter = s.titleAfter.trim().ifBlank { null },
         nickname = s.nickname.trim().ifBlank { null },
+        birthName = s.birthName.trim().ifBlank { null },
         company = s.company.trim().ifBlank { null },
         job = s.job.trim().ifBlank { null },
         department = s.department.trim().ifBlank { null },
@@ -173,6 +176,7 @@ class EditContactViewModel @Inject constructor(
     fun setTitleBefore(v: String) = _state.update { it.copy(titleBefore = v).clearErrors() }
     fun setTitleAfter(v: String) = _state.update { it.copy(titleAfter = v).clearErrors() }
     fun setNickname(v: String) = _state.update { it.copy(nickname = v).clearErrors() }
+    fun setBirthName(v: String) = _state.update { it.copy(birthName = v).clearErrors() }
     fun setGender(id: Int?) = _state.update { it.copy(genderId = id).clearErrors() }
     fun setNationality(id: Int?) = _state.update { it.copy(nationalityId = id).clearErrors() }
     fun toggleGroup(id: Int) = _state.update {
@@ -243,6 +247,7 @@ class EditContactViewModel @Inject constructor(
                 titleBefore = s.titleBefore.trim().ifBlank { null },
                 titleAfter = s.titleAfter.trim().ifBlank { null },
                 nickname = s.nickname.trim().ifBlank { null },
+                birthName = s.birthName.trim().ifBlank { null },
                 genderId = s.genderId,
                 company = s.company.trim().ifBlank { null },
                 vatin = s.vatin.trim().ifBlank { null },

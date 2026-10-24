@@ -13,6 +13,7 @@ data class ContactPatch(
     val titleBefore: String? = null,
     val titleAfter: String? = null,
     val nickname: String? = null,
+    val birthName: String? = null,
     val genderId: Int? = null,
     val company: String? = null,
     val vatin: String? = null,

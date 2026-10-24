@@ -14,6 +14,7 @@ data class ContactDetailDto(
     val fullname: String,
     val firstname: String,
     val lastname: String,
+    @SerialName("birth_name") val birthName: String? = null,
     val nickname: String? = null,
     val title: String? = null,
     @SerialName("title_after") val titleAfter: String? = null,

@@ -200,6 +200,15 @@ fun EditContactScreen(
                 )
             }
             OutlinedTextField(
+                value = state.birthName,
+                onValueChange = viewModel::setBirthName,
+                label = { Text("Birth name") },
+                singleLine = true,
+                isError = state.fieldErrors.containsKey("birth_name"),
+                supportingText = state.fieldErrors["birth_name"]?.let { { Text(it) } },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
                 value = state.nickname,
                 onValueChange = viewModel::setNickname,
                 label = { Text("Nickname") },
