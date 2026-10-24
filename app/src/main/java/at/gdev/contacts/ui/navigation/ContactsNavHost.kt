@@ -121,6 +121,12 @@ fun ContactsNavHost(
         composable(Routes.CONTACT_NEW) {
             EditContactScreen(
                 onBack = { navController.popBackStack() },
+                // Leaves the half-filled form: the existing contact is the one wanted.
+                onOpenContact = { id ->
+                    navController.navigate(Routes.contactDetail(id)) {
+                        popUpTo(Routes.CONTACTS_LIST)
+                    }
+                },
                 onSaved = { newId ->
                     navController.navigate(Routes.contactDetail(newId)) {
                         popUpTo(Routes.CONTACTS_LIST)

@@ -2,6 +2,7 @@ package at.gdev.contacts.data.prefs
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import at.gdev.contacts.domain.model.ContactSort
@@ -33,7 +34,17 @@ class ContactListPreferencesStore @Inject constructor(
         }
     }
 
+    /** Contact group the list is filtered to; null shows every contact. */
+    val groupFilter: Flow<Int?> = context.contactListPrefs.data.map { prefs -> prefs[Keys.GROUP] }
+
+    suspend fun setGroupFilter(groupId: Int?) {
+        context.contactListPrefs.edit { prefs ->
+            if (groupId == null) prefs.remove(Keys.GROUP) else prefs[Keys.GROUP] = groupId
+        }
+    }
+
     private object Keys {
         val SORT = stringPreferencesKey("sort")
+        val GROUP = intPreferencesKey("group")
     }
 }

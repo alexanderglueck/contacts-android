@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import androidx.glance.appwidget.updateAll
 import at.gdev.contacts.domain.repository.ContactsRepository
+import at.gdev.contacts.ui.widget.UpcomingWidget
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
@@ -17,6 +19,8 @@ class ContactSyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         val outcome = repository.syncAll()
+        // Rides on the daily sync so the widget's "Today" stays current.
+        runCatching { UpcomingWidget().updateAll(applicationContext) }
         return outcome.fold(
             onSuccess = { Result.success() },
             onFailure = {

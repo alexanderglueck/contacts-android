@@ -13,6 +13,8 @@ data class ContactSummary(
     val salutation: String? = null,
     val company: String? = null,
     val imageUrl: String? = null,
+    val birthName: String? = null,
+    val groupIds: List<Int> = emptyList(),
 ) {
     val displayName: String
         get() = composeDisplayName(titleBefore, firstName, lastName, titleAfter, nickname, fallback = fullName)

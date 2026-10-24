@@ -64,6 +64,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.encodeToJsonElement
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -82,6 +83,11 @@ class DefaultContactsRepository @Inject constructor(
 ) : ContactsRepository {
 
     private val cache = MutableStateFlow<List<ContactSummary>>(emptyList())
+
+    // The shared Json drops nulls (explicitNulls = false), so a field the user
+    // emptied never reached the server and kept its old value. The edit form
+    // always sends every field, so its update sends null to clear a field.
+    private val clearingJson = Json(json) { explicitNulls = true }
 
     /**
      * Remembered so post-mutation refreshes (create/update/delete) preserve any
@@ -237,7 +243,7 @@ class DefaultContactsRepository @Inject constructor(
     )
 
     override suspend fun updateContact(id: String, patch: ContactPatch): Result<Unit> {
-        val result = mutate { api.update(id, patch.toRequest()) }
+        val result = mutate { api.update(id, clearingJson.encodeToJsonElement(patch.toRequest())) }
         if (result.isSuccess) refreshCacheSilently()
         return result
     }
@@ -414,6 +420,14 @@ class DefaultContactsRepository @Inject constructor(
         ack(api.deleteRelation(contactId, relationId))
     }
 
+    override suspend fun possibleDuplicates(
+        firstName: String,
+        lastName: String,
+        birthName: String?,
+    ): Result<List<ContactSummary>> = runCatching {
+        api.possibleDuplicates(firstName, lastName, birthName?.takeIf { it.isNotBlank() }).data.map { it.toDomain() }
+    }
+
     // ----- History -----
 
     override suspend fun listActivities(contactId: String, page: Int): Result<ContactActivityPage> = runCatching {
@@ -423,6 +437,7 @@ class DefaultContactsRepository @Inject constructor(
                 ContactActivity(
                     id = dto.id,
                     event = dto.event,
+                    summary = dto.summary,
                     userName = dto.user?.name,
                     createdAt = dto.createdAt,
                     changes = dto.changes.map { ContactActivityChange(it.field, it.label, it.old, it.new) },
@@ -570,6 +585,8 @@ class DefaultContactsRepository @Inject constructor(
         salutation = salutation,
         company = company,
         imageUrl = ApiConfig.normalizeImageUrl(imageUrl),
+        birthName = birthName,
+        groupIds = groupIds,
     )
 
     private fun ContactDetailDto.toContactEntity(now: Long): ContactEntity = ContactEntity(

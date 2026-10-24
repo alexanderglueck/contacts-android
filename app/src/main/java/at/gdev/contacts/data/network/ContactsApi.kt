@@ -1,6 +1,7 @@
 package at.gdev.contacts.data.network
 
 import at.gdev.contacts.data.network.dto.ContactActivitiesResponse
+import at.gdev.contacts.data.network.dto.ContactSummariesResponse
 import at.gdev.contacts.data.network.dto.ContactAddressRequest
 import at.gdev.contacts.data.network.dto.ContactByNumberResponse
 import at.gdev.contacts.data.network.dto.ContactCallRequest
@@ -16,7 +17,6 @@ import at.gdev.contacts.data.network.dto.ContactEmailRequest
 import at.gdev.contacts.data.network.dto.ContactGiftIdeaRequest
 import at.gdev.contacts.data.network.dto.ContactNoteRequest
 import at.gdev.contacts.data.network.dto.ContactNumberRequest
-import at.gdev.contacts.data.network.dto.ContactUpdateRequest
 import at.gdev.contacts.data.network.dto.ContactUrlRequest
 import at.gdev.contacts.data.network.dto.ContactsListResponse
 import kotlinx.serialization.json.JsonElement
@@ -50,7 +50,7 @@ interface ContactsApi {
     suspend fun byNumber(@Query("number") number: String): ContactByNumberResponse
 
     @PUT("contacts/{contact}")
-    suspend fun update(@Path("contact") ulid: String, @Body body: ContactUpdateRequest): JsonElement
+    suspend fun update(@Path("contact") ulid: String, @Body body: JsonElement): JsonElement
 
     @DELETE("contacts/{contact}")
     suspend fun delete(@Path("contact") ulid: String): Response<Unit>
@@ -211,6 +211,13 @@ interface ContactsApi {
         @Path("contact") ulid: String,
         @Path("relation") relationId: String,
     ): Response<Unit>
+
+    @GET("contacts/possible-duplicates")
+    suspend fun possibleDuplicates(
+        @Query("firstname") firstname: String,
+        @Query("lastname") lastname: String,
+        @Query("birth_name") birthName: String?,
+    ): ContactSummariesResponse
 
     @GET("contacts/{contact}/activities")
     suspend fun listActivities(

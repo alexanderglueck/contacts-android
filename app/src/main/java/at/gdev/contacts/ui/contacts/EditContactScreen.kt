@@ -2,6 +2,10 @@
 
 package at.gdev.contacts.ui.contacts
 
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.ui.text.style.TextDecoration
+import at.gdev.contacts.domain.model.ContactSummary
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -66,6 +70,7 @@ import java.io.File
 fun EditContactScreen(
     onBack: () -> Unit,
     onSaved: (contactId: String) -> Unit,
+    onOpenContact: (contactId: String) -> Unit = {},
     viewModel: EditContactViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -198,6 +203,9 @@ fun EditContactScreen(
                     supportingText = state.fieldErrors["lastname"]?.let { { Text(it) } },
                     modifier = Modifier.weight(1f),
                 )
+            }
+            if (state.possibleDuplicates.isNotEmpty()) {
+                PossibleDuplicatesCard(state.possibleDuplicates, onOpenContact)
             }
             OutlinedTextField(
                 value = state.birthName,
@@ -463,4 +471,30 @@ private fun FieldRow(content: @Composable androidx.compose.foundation.layout.Row
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) { content() }
+}
+
+@Composable
+private fun PossibleDuplicatesCard(matches: List<ContactSummary>, onOpenContact: (String) -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                if (matches.size == 1) "This contact may already exist:" else "These contacts may already exist:",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+            matches.forEach { match ->
+                val birthName = match.birthName?.takeIf { it.isNotBlank() }?.let { " (née $it)" }.orEmpty()
+                Text(
+                    match.displayName + birthName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    textDecoration = TextDecoration.Underline,
+                    modifier = Modifier.clickable { onOpenContact(match.id) }.padding(vertical = 2.dp),
+                )
+            }
+        }
+    }
 }

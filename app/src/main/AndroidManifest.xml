@@ -30,6 +30,18 @@
         </activity>
 
         <!-- Receives FCM birthday pushes and posts the notification. -->
+        <receiver
+            android:name=".ui.widget.UpcomingWidgetReceiver"
+            android:exported="true"
+            android:label="Upcoming">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/upcoming_widget_info" />
+        </receiver>
+
         <service
             android:name=".data.fcm.ContactsMessagingService"
             android:exported="false">

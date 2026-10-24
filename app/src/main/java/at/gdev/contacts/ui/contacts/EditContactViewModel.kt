@@ -7,12 +7,15 @@ import at.gdev.contacts.data.network.ValidationException
 import at.gdev.contacts.data.util.downsizeJpeg
 import at.gdev.contacts.domain.model.Contact
 import at.gdev.contacts.domain.model.ContactPatch
+import at.gdev.contacts.domain.model.ContactSummary
 import at.gdev.contacts.domain.model.NamedRef
 import at.gdev.contacts.domain.repository.ContactsRepository
 import at.gdev.contacts.domain.repository.ReferenceRepository
 import at.gdev.contacts.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,6 +59,9 @@ data class EditContactUiState(
     val diedFrom: String = "",
     val note: String = "",
     val active: Boolean = true,
+
+    /** Existing contacts with this name; only checked while creating a contact. */
+    val possibleDuplicates: List<ContactSummary> = emptyList(),
 
     val pendingImageBytes: ByteArray? = null,
     val pendingImageMime: String? = null,
@@ -171,12 +177,42 @@ class EditContactViewModel @Inject constructor(
     )
 
     fun setSalutation(v: String) = _state.update { it.copy(salutation = v).clearErrors() }
-    fun setFirstName(v: String) = _state.update { it.copy(firstName = v).clearErrors() }
-    fun setLastName(v: String) = _state.update { it.copy(lastName = v).clearErrors() }
+    fun setFirstName(v: String) {
+        _state.update { it.copy(firstName = v).clearErrors() }
+        checkDuplicates()
+    }
+
+    fun setLastName(v: String) {
+        _state.update { it.copy(lastName = v).clearErrors() }
+        checkDuplicates()
+    }
     fun setTitleBefore(v: String) = _state.update { it.copy(titleBefore = v).clearErrors() }
     fun setTitleAfter(v: String) = _state.update { it.copy(titleAfter = v).clearErrors() }
     fun setNickname(v: String) = _state.update { it.copy(nickname = v).clearErrors() }
-    fun setBirthName(v: String) = _state.update { it.copy(birthName = v).clearErrors() }
+    fun setBirthName(v: String) {
+        _state.update { it.copy(birthName = v).clearErrors() }
+        checkDuplicates()
+    }
+
+    private var duplicateJob: Job? = null
+
+    // Debounced so typing a name doesn't fire a request per keystroke.
+    private fun checkDuplicates() {
+        if (contactId != null) return
+        duplicateJob?.cancel()
+        val s = _state.value
+        val first = s.firstName.trim()
+        val last = s.lastName.trim()
+        if (first.isEmpty() || last.isEmpty()) {
+            _state.update { it.copy(possibleDuplicates = emptyList()) }
+            return
+        }
+        duplicateJob = viewModelScope.launch {
+            delay(500)
+            contactsRepository.possibleDuplicates(first, last, s.birthName.trim())
+                .onSuccess { matches -> _state.update { it.copy(possibleDuplicates = matches) } }
+        }
+    }
     fun setGender(id: Int?) = _state.update { it.copy(genderId = id).clearErrors() }
     fun setNationality(id: Int?) = _state.update { it.copy(nationalityId = id).clearErrors() }
     fun toggleGroup(id: Int) = _state.update {

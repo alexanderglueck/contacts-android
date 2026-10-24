@@ -14,6 +14,10 @@ data class ContactActivityDto(
     val id: Long,
     /** "created", "updated" or "deleted". */
     val event: String,
+    /** "contact", "number", "email", "url", "address" or "date". */
+    val subject: String = "contact",
+    /** Translated one-liner such as "Telefonnummer hinzugefügt". */
+    val summary: String? = null,
     val user: ContactActivityUserDto? = null,
     @SerialName("created_at") val createdAt: String? = null,
     val changes: List<ContactActivityChangeDto> = emptyList(),

@@ -135,7 +135,7 @@ private fun HistoryList(state: ContactHistoryUiState, onLoadMore: () -> Unit) {
 @Composable
 private fun ActivityRow(activity: ContactActivity) {
     val context = LocalContext.current
-    val event = when (activity.event) {
+    val event = activity.summary ?: when (activity.event) {
         "created" -> "Created"
         "updated" -> "Updated"
         "deleted" -> "Deleted"

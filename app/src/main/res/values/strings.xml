@@ -5,4 +5,5 @@
     <string name="default_notification_channel_id">birthdays</string>
     <string name="default_notification_channel_name">Birthdays</string>
     <string name="default_notification_channel_description">Reminders about your contacts\' birthdays today.</string>
+    <string name="upcoming_widget_description">Next birthdays and important dates</string>
 </resources>

@@ -4,6 +4,7 @@ package at.gdev.contacts.domain.model
 data class ContactActivity(
     val id: Long,
     val event: String,
+    val summary: String? = null,
     val userName: String? = null,
     val createdAt: String? = null,
     val changes: List<ContactActivityChange> = emptyList(),

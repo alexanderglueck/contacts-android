@@ -6,7 +6,9 @@ import at.gdev.contacts.data.prefs.ContactListPreferencesStore
 import at.gdev.contacts.data.prefs.NotificationPreferencesStore
 import at.gdev.contacts.domain.model.ContactSort
 import at.gdev.contacts.domain.model.ContactSummary
+import at.gdev.contacts.domain.model.NamedRef
 import at.gdev.contacts.domain.repository.ContactsRepository
+import at.gdev.contacts.domain.repository.ReferenceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +37,8 @@ data class ContactsListUiState(
     val sort: ContactSort = ContactSort.LastName,
     val sections: List<ContactSection> = emptyList(),
     val totalCount: Int = 0,
+    val groups: List<NamedRef> = emptyList(),
+    val selectedGroupId: Int? = null,
     val loading: Boolean = false,
     val refreshing: Boolean = false,
     val error: String? = null,
@@ -46,7 +50,10 @@ class ContactsListViewModel @Inject constructor(
     private val repository: ContactsRepository,
     private val preferences: ContactListPreferencesStore,
     private val notificationPreferences: NotificationPreferencesStore,
+    private val referenceRepository: ReferenceRepository,
 ) : ViewModel() {
+
+    private val groups = MutableStateFlow<List<NamedRef>>(emptyList())
 
     private val query = MutableStateFlow("")
     private val loading = MutableStateFlow(false)
@@ -66,18 +73,31 @@ class ContactsListViewModel @Inject constructor(
         viewModelScope.launch { notificationPreferences.setPermissionPromptShown(true) }
     }
 
+    private data class ListInputs(
+        val contacts: List<ContactSummary>,
+        val query: String,
+        val sort: ContactSort,
+        val groups: List<NamedRef>,
+        val groupId: Int?,
+    )
+
     val state: StateFlow<ContactsListUiState> = combine(
-        combine(repository.summaries, query, preferences.sort) { contacts, q, sort -> Triple(contacts, q, sort) },
+        combine(repository.summaries, query, preferences.sort, groups, preferences.groupFilter, ::ListInputs),
         loading,
         refreshing,
         error,
-    ) { (contacts, q, sort), isLoading, isRefreshing, err ->
-        val sections = groupAndSort(contacts, sort)
+    ) { inputs, isLoading, isRefreshing, err ->
+        // A stored group that no longer exists (deleted on the web) shows everyone.
+        val groupId = inputs.groupId?.takeIf { id -> inputs.groups.any { it.id == id } }
+        val contacts = if (groupId == null) inputs.contacts else inputs.contacts.filter { groupId in it.groupIds }
+        val sections = groupAndSort(contacts, inputs.sort)
         ContactsListUiState(
-            query = q,
-            sort = sort,
+            query = inputs.query,
+            sort = inputs.sort,
             sections = sections,
             totalCount = contacts.size,
+            groups = inputs.groups,
+            selectedGroupId = groupId,
             loading = isLoading,
             refreshing = isRefreshing,
             error = err,
@@ -85,6 +105,7 @@ class ContactsListViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ContactsListUiState())
 
     init {
+        loadGroups()
         refresh(query.value)
         query
             .debounce(300)
@@ -101,7 +122,17 @@ class ContactsListViewModel @Inject constructor(
         viewModelScope.launch { preferences.setSort(value) }
     }
 
+    fun setGroupFilter(groupId: Int?) {
+        viewModelScope.launch { preferences.setGroupFilter(groupId) }
+    }
+
     fun retry() = refresh(query.value)
+
+    private fun loadGroups() {
+        viewModelScope.launch {
+            runCatching { referenceRepository.contactGroups() }.onSuccess { groups.value = it }
+        }
+    }
 
     fun pullToRefresh() {
         if (refreshing.value) return

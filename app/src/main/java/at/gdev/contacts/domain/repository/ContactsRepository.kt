@@ -95,6 +95,10 @@ interface ContactsRepository {
     suspend fun updateCall(contactId: String, callId: String, calledAt: String, note: String?): Result<Unit>
     suspend fun deleteCall(contactId: String, callId: String): Result<Unit>
 
+    // Existing contacts that may be the one about to be created (same first name,
+    // last name matching their last or birth name).
+    suspend fun possibleDuplicates(firstName: String, lastName: String, birthName: String?): Result<List<ContactSummary>>
+
     // Edit history, newest first. Needs the "view activities" permission.
     suspend fun listActivities(contactId: String, page: Int): Result<at.gdev.contacts.domain.model.ContactActivityPage>
 

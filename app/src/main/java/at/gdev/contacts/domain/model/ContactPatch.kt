@@ -3,8 +3,8 @@ package at.gdev.contacts.domain.model
 import java.time.LocalDate
 
 /**
- * Partial-update payload for a contact's base fields. Any null is left unchanged
- * server-side; pass an empty list to clear contact_groups.
+ * The edit form's payload for a contact's base fields. On update every field is
+ * sent, so a null clears that field server-side; on create a null is omitted.
  */
 data class ContactPatch(
     val salutation: String? = null,

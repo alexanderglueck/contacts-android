@@ -33,6 +33,8 @@ data class ContactSummaryDto(
     @SerialName("title_after") val titleAfter: String? = null,
     val salutation: String? = null,
     val company: String? = null,
+    @SerialName("birth_name") val birthName: String? = null,
+    @SerialName("group_ids") val groupIds: List<Int> = emptyList(),
     @SerialName("image_url") val imageUrl: String? = null,
     val numbers: List<ContactSummaryNumberDto> = emptyList(),
 )
@@ -53,4 +55,9 @@ data class PaginationMetaDto(
     val total: Int,
     val from: Int? = null,
     val to: Int? = null,
+)
+
+@Serializable
+data class ContactSummariesResponse(
+    val data: List<ContactSummaryDto>,
 )

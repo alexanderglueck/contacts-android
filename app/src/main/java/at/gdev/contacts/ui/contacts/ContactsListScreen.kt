@@ -1,5 +1,9 @@
 package at.gdev.contacts.ui.contacts
 
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.FilterChip
+import at.gdev.contacts.domain.model.NamedRef
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -117,6 +121,14 @@ fun ContactsListScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             )
 
+            if (state.groups.isNotEmpty()) {
+                GroupFilterRow(
+                    groups = state.groups,
+                    selectedId = state.selectedGroupId,
+                    onSelect = viewModel::setGroupFilter,
+                )
+            }
+
             if (state.loading) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
@@ -132,7 +144,11 @@ fun ContactsListScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        if (state.query.isBlank()) "No contacts yet" else "No matches",
+                        when {
+                            state.query.isNotBlank() -> "No matches"
+                            state.selectedGroupId != null -> "No contacts in this group"
+                            else -> "No contacts yet"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -203,6 +219,27 @@ private fun SortMenu(current: ContactSort, onSelect: (ContactSort) -> Unit) {
                 onSelect(ContactSort.LastName)
             },
         )
+    }
+}
+
+@Composable
+private fun GroupFilterRow(groups: List<NamedRef>, selectedId: Int?, onSelect: (Int?) -> Unit) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        item(key = "all") {
+            FilterChip(selected = selectedId == null, onClick = { onSelect(null) }, label = { Text("All") })
+        }
+        items(groups, key = { it.id }) { group ->
+            FilterChip(
+                selected = selectedId == group.id,
+                // Tapping the active group again clears the filter.
+                onClick = { onSelect(if (selectedId == group.id) null else group.id) },
+                label = { Text(group.name) },
+            )
+        }
     }
 }
 

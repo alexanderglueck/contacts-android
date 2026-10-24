@@ -461,7 +461,7 @@ private fun bucketFor(date: LocalDate, today: LocalDate): String {
     }
 }
 
-private fun whenText(context: Context, date: LocalDate, today: LocalDate): String {
+internal fun whenText(context: Context, date: LocalDate, today: LocalDate): String {
     val days = ChronoUnit.DAYS.between(today, date)
     val weekday = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
     val pretty = context.formatDate(date)
@@ -473,7 +473,7 @@ private fun whenText(context: Context, date: LocalDate, today: LocalDate): Strin
     }
 }
 
-private fun displayTitle(event: CalendarEvent): String {
+internal fun displayTitle(event: CalendarEvent): String {
     val name = event.contactName ?: "Contact"
     return if (event.type.equals("birthday", ignoreCase = true)) {
         val years = event.years
