@@ -1,5 +1,6 @@
 package at.gdev.contacts.data.network
 
+import at.gdev.contacts.data.network.dto.ContactActivitiesResponse
 import at.gdev.contacts.data.network.dto.ContactAddressRequest
 import at.gdev.contacts.data.network.dto.ContactByNumberResponse
 import at.gdev.contacts.data.network.dto.ContactCallRequest
@@ -210,6 +211,13 @@ interface ContactsApi {
         @Path("contact") ulid: String,
         @Path("relation") relationId: String,
     ): Response<Unit>
+
+    @GET("contacts/{contact}/activities")
+    suspend fun listActivities(
+        @Path("contact") ulid: String,
+        @Query("page") page: Int,
+        @Query("per_page") perPage: Int,
+    ): ContactActivitiesResponse
 
     @GET("contacts/{contact}/comments")
     suspend fun listComments(@Path("contact") ulid: String): ContactCommentsResponse

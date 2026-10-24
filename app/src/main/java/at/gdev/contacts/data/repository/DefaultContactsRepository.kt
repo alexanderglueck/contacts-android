@@ -36,6 +36,9 @@ import at.gdev.contacts.data.network.dto.ContactUrlRequest
 import at.gdev.contacts.data.network.dto.NamedRefDto
 import at.gdev.contacts.data.network.toDomainError
 import at.gdev.contacts.domain.model.Contact
+import at.gdev.contacts.domain.model.ContactActivity
+import at.gdev.contacts.domain.model.ContactActivityChange
+import at.gdev.contacts.domain.model.ContactActivityPage
 import at.gdev.contacts.domain.model.ContactAddress
 import at.gdev.contacts.domain.model.ContactCall
 import at.gdev.contacts.domain.model.ContactRelation
@@ -411,6 +414,27 @@ class DefaultContactsRepository @Inject constructor(
         ack(api.deleteRelation(contactId, relationId))
     }
 
+    // ----- History -----
+
+    override suspend fun listActivities(contactId: String, page: Int): Result<ContactActivityPage> = runCatching {
+        val response = api.listActivities(contactId, page = page, perPage = ACTIVITIES_PAGE_SIZE)
+        ContactActivityPage(
+            items = response.data.map { dto ->
+                ContactActivity(
+                    id = dto.id,
+                    event = dto.event,
+                    userName = dto.user?.name,
+                    createdAt = dto.createdAt,
+                    changes = dto.changes.map { ContactActivityChange(it.field, it.label, it.old, it.new) },
+                )
+            },
+            hasMore = page < response.meta.lastPage,
+        )
+    }.fold(
+        onSuccess = { Result.success(it) },
+        onFailure = { Result.failure(it.toDomainError(json)) },
+    )
+
     // ----- Comments -----
 
     override suspend fun listComments(contactId: String): Result<List<ContactComment>> = runCatching {
@@ -660,6 +684,7 @@ class DefaultContactsRepository @Inject constructor(
     private companion object {
         const val SYNC_PAGE_SIZE = 100
         const val SEARCH_PAGE_SIZE = 20
+        const val ACTIVITIES_PAGE_SIZE = 25
         const val SUFFIX_LEN = 9
         const val SUFFIX_MIN = 7
     }

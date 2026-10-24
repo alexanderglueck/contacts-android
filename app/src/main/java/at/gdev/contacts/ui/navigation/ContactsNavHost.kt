@@ -20,6 +20,7 @@ import at.gdev.contacts.ui.auth.SessionState
 import at.gdev.contacts.ui.auth.SessionViewModel
 import at.gdev.contacts.ui.calendar.CalendarScreen
 import at.gdev.contacts.ui.contacts.ContactDetailScreen
+import at.gdev.contacts.ui.contacts.ContactHistoryScreen
 import at.gdev.contacts.ui.contacts.ContactsListScreen
 import at.gdev.contacts.ui.contacts.EditContactScreen
 import at.gdev.contacts.ui.settings.SettingsScreen
@@ -113,6 +114,7 @@ fun ContactsNavHost(
             ContactDetailScreen(
                 onBack = { navController.popBackStack() },
                 onEditBase = { id -> navController.navigate(Routes.contactEdit(id)) },
+                onOpenHistory = { id -> navController.navigate(Routes.contactHistory(id)) },
                 onContactClick = { id -> navController.navigate(Routes.contactDetail(id)) },
             )
         }
@@ -134,6 +136,12 @@ fun ContactsNavHost(
                 onBack = { navController.popBackStack() },
                 onSaved = { navController.popBackStack() },
             )
+        }
+        composable(
+            route = Routes.CONTACT_HISTORY,
+            arguments = listOf(navArgument(Routes.ARG_CONTACT_ID) { type = NavType.StringType }),
+        ) {
+            ContactHistoryScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.SETTINGS) {
             SettingsScreen(

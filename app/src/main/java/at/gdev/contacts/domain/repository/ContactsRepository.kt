@@ -95,6 +95,9 @@ interface ContactsRepository {
     suspend fun updateCall(contactId: String, callId: String, calledAt: String, note: String?): Result<Unit>
     suspend fun deleteCall(contactId: String, callId: String): Result<Unit>
 
+    // Edit history, newest first. Needs the "view activities" permission.
+    suspend fun listActivities(contactId: String, page: Int): Result<at.gdev.contacts.domain.model.ContactActivityPage>
+
     // Comments — kept separate from the contact detail; fetch explicitly.
     suspend fun listComments(contactId: String): Result<List<at.gdev.contacts.domain.model.ContactComment>>
     suspend fun addComment(contactId: String, text: String, parentId: String? = null): Result<Unit>

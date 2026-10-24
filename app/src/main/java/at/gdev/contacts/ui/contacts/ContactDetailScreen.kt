@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.Map
@@ -112,6 +113,7 @@ import at.gdev.contacts.ui.util.formatMonthDay
 fun ContactDetailScreen(
     onBack: () -> Unit,
     onEditBase: (contactId: String) -> Unit,
+    onOpenHistory: (contactId: String) -> Unit = {},
     onContactClick: (contactId: String) -> Unit = {},
     viewModel: ContactDetailViewModel = hiltViewModel(),
 ) {
@@ -155,6 +157,14 @@ fun ContactDetailScreen(
                                 onClick = {
                                     menuOpen = false
                                     state.contact?.let { onEditBase(it.id) }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("History") },
+                                leadingIcon = { Icon(Icons.Filled.History, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    state.contact?.let { onOpenHistory(it.id) }
                                 },
                             )
                             DropdownMenuItem(
