@@ -23,6 +23,7 @@ import at.gdev.contacts.domain.model.ContactUrl
 import at.gdev.contacts.domain.model.RecordedCall
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import at.gdev.contacts.domain.model.NamedRef
 import at.gdev.contacts.domain.repository.ContactsRepository
@@ -54,6 +55,7 @@ data class OversizeImage(val bytes: ByteArray, val mimeType: String) {
 
 data class ContactDetailUiState(
     val loading: Boolean = true,
+    val refreshing: Boolean = false,
     val contact: Contact? = null,
     val comments: List<ContactComment> = emptyList(),
     val recordedCalls: List<RecordedCall> = emptyList(),
@@ -116,6 +118,7 @@ class ContactDetailViewModel @Inject constructor(
 
     sealed interface DetailEvent {
         data object Deleted : DetailEvent
+        data object RefreshFailed : DetailEvent
     }
 
     init {
@@ -124,6 +127,30 @@ class ContactDetailViewModel @Inject constructor(
     }
 
     fun reload() = load()
+
+    // Pull-to-refresh refetches the same endpoints as the initial load. A failed
+    // fetch keeps what is on screen instead of replacing it with "Contact not found".
+    fun pullToRefresh() {
+        if (_state.value.refreshing) return
+        viewModelScope.launch {
+            _state.update { it.copy(refreshing = true) }
+            val (contact, comments, recorded) = fetch()
+            if (contact == null) {
+                _state.update { it.copy(refreshing = false) }
+                _events.send(DetailEvent.RefreshFailed)
+                return@launch
+            }
+            _state.update {
+                it.copy(
+                    refreshing = false,
+                    contact = contact,
+                    comments = comments,
+                    recordedCalls = recorded,
+                    error = null,
+                )
+            }
+        }
+    }
 
     // The base-contact edit lives on a separate screen; on a successful save it
     // publishes the edited contact here, so the detail view updates in place (e.g.
@@ -140,18 +167,7 @@ class ContactDetailViewModel @Inject constructor(
     private fun load() {
         viewModelScope.launch {
             _state.update { it.copy(loading = it.contact == null) }
-            // Contact detail and comments live on separate endpoints; fetch them in parallel.
-            val contactDeferred = async { repository.getContact(contactId) }
-            val commentsDeferred = async {
-                repository.listComments(contactId).getOrDefault(emptyList())
-            }
-            val recordedDeferred = async {
-                runCatching { callEventStore.recordedFor(contactId, System.currentTimeMillis()) }
-                    .getOrDefault(emptyList())
-            }
-            val contact = contactDeferred.await()
-            val comments = commentsDeferred.await()
-            val recorded = recordedDeferred.await()
+            val (contact, comments, recorded) = fetch()
             _state.update {
                 it.copy(
                     loading = false,
@@ -163,6 +179,20 @@ class ContactDetailViewModel @Inject constructor(
             }
         }
     }
+
+    // Contact detail and comments live on separate endpoints; fetch them in parallel.
+    private suspend fun fetch(): Triple<Contact?, List<ContactComment>, List<RecordedCall>> =
+        coroutineScope {
+            val contactDeferred = async { repository.getContact(contactId) }
+            val commentsDeferred = async {
+                repository.listComments(contactId).getOrDefault(emptyList())
+            }
+            val recordedDeferred = async {
+                runCatching { callEventStore.recordedFor(contactId, System.currentTimeMillis()) }
+                    .getOrDefault(emptyList())
+            }
+            Triple(contactDeferred.await(), commentsDeferred.await(), recordedDeferred.await())
+        }
 
     // ----- Sheet open / close -----
 

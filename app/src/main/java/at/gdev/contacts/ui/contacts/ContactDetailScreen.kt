@@ -2,6 +2,7 @@
 
 package at.gdev.contacts.ui.contacts
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -52,6 +53,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -117,9 +119,15 @@ fun ContactDetailScreen(
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
-            if (event is ContactDetailViewModel.DetailEvent.Deleted) onBack()
+            when (event) {
+                ContactDetailViewModel.DetailEvent.Deleted -> onBack()
+                ContactDetailViewModel.DetailEvent.RefreshFailed ->
+                    Toast.makeText(context, "Could not refresh contact", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -174,16 +182,22 @@ fun ContactDetailScreen(
                 contentAlignment = Alignment.Center,
             ) { Text(state.error ?: "Contact not found") }
 
-            else -> ContactDetailContent(
-                contact = state.contact!!,
-                comments = state.comments,
-                recordedCalls = state.recordedCalls,
-                onContactClick = onContactClick,
-                viewModel = viewModel,
+            else -> PullToRefreshBox(
+                isRefreshing = state.refreshing,
+                onRefresh = viewModel::pullToRefresh,
                 modifier = Modifier
                     .padding(padding)
                     .fillMaxSize(),
-            )
+            ) {
+                ContactDetailContent(
+                    contact = state.contact!!,
+                    comments = state.comments,
+                    recordedCalls = state.recordedCalls,
+                    onContactClick = onContactClick,
+                    viewModel = viewModel,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 
